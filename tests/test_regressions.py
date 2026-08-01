@@ -103,6 +103,17 @@ class PrepareRegressionTests(unittest.TestCase):
 
 
 class BuildRegressionTests(unittest.TestCase):
+    def test_command_output_is_bounded_and_preserves_head_and_tail(self) -> None:
+        output = build.command_output(
+            "stdout-head\n" + "x" * build.MAX_COMMAND_OUTPUT_CHARS,
+            "y" * build.MAX_COMMAND_OUTPUT_CHARS + "\nstderr-tail",
+        )
+
+        self.assertLessEqual(len(output), build.MAX_COMMAND_OUTPUT_CHARS)
+        self.assertTrue(output.startswith("[stdout]\nstdout-head"))
+        self.assertTrue(output.endswith("stderr-tail"))
+        self.assertRegex(output, r"\.\.\. \d+ characters omitted \.\.\.")
+
     def test_cover_field_validation_uses_prepared_values(self) -> None:
         course_cover = {
             "cover": {

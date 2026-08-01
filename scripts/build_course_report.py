@@ -32,6 +32,25 @@ GENERATED_SUFFIXES = (
 )
 INTERMEDIATE_NAMES = ("report_body.md", "metadata.yaml", "prepare_report.json", "postprocess_qa.json")
 DEFAULT_COMMAND_TIMEOUT = 180.0
+MAX_COMMAND_OUTPUT_CHARS = 16_000
+
+
+def bounded_output(text: str, limit: int = MAX_COMMAND_OUTPUT_CHARS) -> str:
+    if len(text) <= limit:
+        return text
+    marker = "\n... 0 characters omitted ...\n"
+    while True:
+        kept = max(0, limit - len(marker))
+        omitted = len(text) - kept
+        updated = f"\n... {omitted} characters omitted ...\n"
+        if len(updated) == len(marker):
+            marker = updated
+            break
+        marker = updated
+    kept = max(0, limit - len(marker))
+    head = kept // 2
+    tail = kept - head
+    return text[:head] + marker + (text[-tail:] if tail else "")
 
 
 def command_output(stdout: str | bytes | None, stderr: str | bytes | None) -> str:
@@ -41,7 +60,7 @@ def command_output(stdout: str | bytes | None, stderr: str | bytes | None) -> st
             value = value.decode("utf-8", errors="replace")
         if value and value.strip():
             streams.append(f"[{label}]\n{value.strip()}")
-    return "\n".join(streams)
+    return bounded_output("\n".join(streams))
 
 
 def parse_args() -> argparse.Namespace:

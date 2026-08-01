@@ -548,6 +548,7 @@ def render_compile_failure(work_root: Path) -> dict[str, object]:
         "compiler failure must preserve the useful compiler diagnostic",
         errors,
     )
+    check(len(built.stderr) <= 17_000, "compiler failure diagnostics must stay bounded", errors)
     check(not pdf_path.exists(), "failed compilation must not leave a final PDF", errors)
     return {"ok": not errors, "errors": errors, "stderr": built.stderr}
 
