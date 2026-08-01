@@ -77,7 +77,7 @@ python3 "$SKILL_DIR/scripts/build_course_report.py" report.md \
   --pdf "report.pdf"
 ```
 
-成功时，命令退出码为 `0`，终端会输出一段 JSON 摘要，并在当前目录生成：
+成功时，命令退出码为 `0`，stdout 会输出一段 JSON 摘要，并在当前目录生成：
 
 ```text
 report.pdf
@@ -88,7 +88,7 @@ latex/prepare_report.json
 latex/postprocess_qa.json
 ```
 
-构建或 QA 失败时，脚本会把原因写到标准错误并以非零状态退出。不要只看 PDF 是否存在；同时检查终端结果和两个 QA JSON 文件。
+预处理 warning 会逐条写到 stderr，并同时保留在成功 JSON 的 `warnings` 数组中；`warning_count` 与数组长度一致。构建或 QA 失败时，脚本会把原因写到 stderr 并以非零状态退出。不要只看 PDF 是否存在；同时检查终端结果和两个 QA JSON 文件。
 
 如果不需要封面：
 

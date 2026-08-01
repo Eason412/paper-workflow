@@ -106,6 +106,13 @@ def read_json(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def prepare_warnings(report: dict[str, object]) -> list[str]:
+    warnings = report.get("warnings", [])
+    if not isinstance(warnings, list) or not all(isinstance(item, str) for item in warnings):
+        raise RuntimeError("prepare warnings must be a list of strings")
+    return warnings
+
+
 def project_path(path: Path, project_dir: Path) -> Path:
     return path if path.is_absolute() else project_dir / path
 
@@ -466,6 +473,9 @@ def main() -> int:
 
         prepare_report = work_dir / "prepare_report.json"
         prepare = read_json(prepare_report)
+        warnings = prepare_warnings(prepare)
+        for warning in warnings:
+            print(f"prepare warning: {warning}", file=sys.stderr)
         failures = validate_prepare_qa(prepare) + validate_cover_fields(prepare)
         if failures:
             print("Prepare QA failed: " + "; ".join(failures), file=sys.stderr)
@@ -532,7 +542,8 @@ def main() -> int:
             "pdf": str(pdf_path if not output_pdf else output_pdf),
             "prepare_report": str(prepare_report),
             "postprocess_qa": str(postprocess_qa),
-            "warning_count": len(prepare.get("warnings", [])),
+            "warning_count": len(warnings),
+            "warnings": warnings,
         }
         print(json.dumps(summary, ensure_ascii=False))
         return 0

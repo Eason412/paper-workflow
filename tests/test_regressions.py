@@ -156,6 +156,34 @@ class BuildRegressionTests(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
+    @unittest.skipUnless(shutil.which("pandoc"), "pandoc is required for build integration")
+    def test_build_exposes_prepare_warnings_without_corrupting_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "report.md"
+            source.write_text("# 课程报告\n\n## 正文\n\n内容。\n", encoding="utf-8")
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "build_course_report.py"),
+                    str(source),
+                    "--no-cover",
+                    "--skip-compile",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=30,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        summary = json.loads(completed.stdout)
+        self.assertGreater(summary["warning_count"], 0)
+        self.assertEqual(summary["warning_count"], len(summary["warnings"]))
+        self.assertIn("prepare warning:", completed.stderr)
+        self.assertTrue(any("摘要" in warning for warning in summary["warnings"]))
+
     def test_project_lock_rejects_a_second_build_until_release(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)

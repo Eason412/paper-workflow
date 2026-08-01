@@ -72,6 +72,9 @@ jobs:
       - name: Check PDF compiler
         run: tectonic --version
 
+      - name: Run Pandoc integration regressions
+        run: python3 -m unittest -v tests.test_regressions
+
       - name: Run smoke tests
         env:
           MD_COURSE_REPORT_REQUIRE_COMPILER: "1"
