@@ -425,7 +425,6 @@ def main() -> int:
     default_logo = skill_dir / "assets" / "njust_logo.png"
 
     try:
-        pandoc = require_tool("pandoc", "Markdown to LaTeX conversion")
         source = args.source.resolve()
         if not source.is_file():
             raise RuntimeError(f"source Markdown was not found: {source}")
@@ -455,6 +454,7 @@ def main() -> int:
         if work_dir.exists() and not work_dir.is_dir():
             raise RuntimeError(f"--work-dir must be a directory path: {work_dir}")
         validate_generated_path_collisions(source, work_dir, tex_path, pdf_path, output_pdf)
+        pandoc = require_tool("pandoc", "Markdown to LaTeX conversion")
         work_dir.mkdir(parents=True, exist_ok=True)
         project_lock = acquire_project_lock(project_dir, args.command_timeout)
         logo_arg = "" if args.no_cover else args.logo
