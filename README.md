@@ -2,20 +2,42 @@
 
 [简体中文](README.zh-CN.md) | **English**
 
-`oa-paper-fetch` turns references found by an AI into resumable, auditable PDF download jobs. You can provide exact paper titles, DOI values, URLs, Markdown, CSV, or plain text. Codex and Claude Code invoke the same backend through their respective Skill entry points. The tool confirms paper identity, tries open-access (OA) copies first, and uses the user's authenticated institutional browser session for IEEE Xplore, Wiley Online Library, or Elsevier ScienceDirect only when institutional fallback is explicitly enabled.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CLI 0.5.0](https://img.shields.io/badge/CLI-0.5.0-4F46E5.svg)](#cli-reference)
+
+> Title / DOI / URL → PDF files + JSON/CSV reports.
+
+`oa-paper-fetch` confirms paper identity, tries open-access (OA) candidates first, and uses the user's authenticated institutional browser session for IEEE Xplore, Wiley Online Library, or Elsevier ScienceDirect only when institutional fallback is explicitly enabled. Codex, Claude Code, and the CLI all use the same backend.
 
 Papers go to `~/Desktop/Papers` unless another destination is configured. A valid institutional session can be reused across runs. The tool does not read, enter, or store school usernames, passwords, MFA codes, or recovery codes. The current CLI version is `0.5.0`.
 
-## How it works
+## What is oa-paper-fetch?
 
-1. **Build a manifest.** The Skill copies AI-found references into an `id,title,doi,url` CSV. If only the title is known, DOI and URL stay empty; the agent must not fill them from memory.
-2. **Normalize and deduplicate.** The backend normalizes DOI and URL values, deduplicates by DOI first and URL second, and only flags title-only duplicates instead of silently merging them.
-3. **Resolve title-only identity.** arXiv, Crossref, and OpenAlex are queried independently. A DOI is accepted only when at least two independent sources agree on the same DOI and each candidate title reaches the confirmation threshold. Even an exact title from only one source remains ambiguous, and the highest-scoring candidate is never accepted by ranking alone.
-4. **Try OA first.** Direct PDFs and confirmed arXiv, OpenAlex, Unpaywall, and Semantic Scholar candidates are attempted before institutional access.
-5. **Use institutional access when allowed.** An OA miss with a confirmed DOI or supported original URL can enter the logged-in IEEE, Wiley, or Elsevier flow. When the task has an expected title, the publisher's `citation_title` must match before a PDF is requested.
-6. **Name files from verified metadata.** Year, first author, and full title are preferred. When metadata is incomplete, the filename falls back to an arXiv ID, DOI, PII, IEEE document number, or original URL basename instead of a bare `rowN`.
-7. **Persist state and resume.** PDFs, the normalized manifest, detailed reports, and resume state are written to the output directory. A later run skips verified PDFs and retries only unresolved work.
-8. **Keep institutional batches bounded.** At most 30 institutional items are attempted in one run. Overflow is written to `oa_fetch_pending.csv` and requires another explicit user request.
+- **One input path for real reference lists.** Accept exact titles, DOI values, URLs, Markdown, CSV, or one-item-per-line text.
+- **Identity resolution.** Do not guess a DOI from memory or accept the highest-scoring title match; title-only input needs two sources to agree on one DOI.
+- **Files and state.** Recheck download URLs, require size and `%PDF` checks, and keep manifests, per-paper results, pending work, and resume state.
+
+## Capability overview
+
+| Capability | What it does | When to use it |
+| --- | --- | --- |
+| Codex / Claude Code Skill | Converts an AI conversation or reference list into the same manifest-driven backend job | Download papers an agent has just found or recommended |
+| Single-paper CLI | Accepts one `--title`, `--doi`, or `--url` selector | Fetch or diagnose one known paper |
+| Batch manifest | Normalizes, validates, deduplicates, reports, and resumes CSV, Markdown, or text input | Download a list and keep per-paper results |
+| Optional institutional fallback | Reuses a user-authenticated browser session for IEEE, Wiley, or Elsevier after OA misses | Retrieve papers the user is already entitled to access |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    input["Title / DOI / URL / batch"] --> manifest["manifest.py<br/>normalize · dedupe"]
+    manifest --> resolve["DOI resolution<br/>arXiv · Crossref · OpenAlex"]
+    resolve --> oa["OA sources<br/>direct · arXiv · OpenAlex<br/>Unpaywall · Semantic Scholar"]
+    oa -->|PDF candidate| check["URL policy · size · %PDF"]
+    oa -->|OA miss + --institutional| institutional["institutional_fetch.py<br/>IEEE · Wiley · Elsevier"]
+    institutional --> check
+    check --> output["PDF · JSON/CSV · state"]
+```
 
 ## Quick start
 
@@ -98,6 +120,17 @@ python3 oa_fetch.py \
 ```
 
 On success, the PDF and reports appear in `~/Desktop/Papers` unless another default is configured. To enable Unpaywall, set `UNPAYWALL_EMAIL` in the local environment; the backend does not print its value.
+
+## How it works
+
+1. **Build a manifest.** The Skill copies AI-found references into an `id,title,doi,url` CSV. If only the title is known, DOI and URL stay empty; the agent must not fill them from memory.
+2. **Normalize and deduplicate.** The backend normalizes DOI and URL values, deduplicates by DOI first and URL second, and only flags title-only duplicates instead of silently merging them.
+3. **Resolve title-only identity.** arXiv, Crossref, and OpenAlex are queried independently. A DOI is accepted only when at least two independent sources agree on the same DOI and each candidate title reaches the confirmation threshold. Even an exact title from only one source remains ambiguous, and the highest-scoring candidate is never accepted by ranking alone.
+4. **Try OA first.** Direct PDFs and confirmed arXiv, OpenAlex, Unpaywall, and Semantic Scholar candidates are attempted before institutional access.
+5. **Use institutional access when allowed.** An OA miss with a confirmed DOI or supported original URL can enter the logged-in IEEE, Wiley, or Elsevier flow. When the task has an expected title, the publisher's `citation_title` must match before a PDF is requested.
+6. **Name files from verified metadata.** Year, first author, and full title are preferred. When metadata is incomplete, the filename falls back to an arXiv ID, DOI, PII, IEEE document number, or original URL basename instead of a bare `rowN`.
+7. **Persist state and resume.** PDFs, the normalized manifest, detailed reports, and resume state are written to the output directory. A later run skips verified PDFs and retries only unresolved work.
+8. **Keep institutional batches bounded.** At most 30 institutional items are attempted in one run. Overflow is written to `oa_fetch_pending.csv` and requires another explicit user request.
 
 ## PDF naming
 

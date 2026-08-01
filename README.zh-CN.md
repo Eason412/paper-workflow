@@ -2,20 +2,42 @@
 
 **简体中文** | [English](README.md)
 
-`oa-paper-fetch` 把 AI 找到的参考文献转换成可恢复、可审计的 PDF 下载任务。用户可以只给完整论文标题，也可以给 DOI、URL、Markdown、CSV 或纯文本；Codex 和 Claude Code 都能通过各自的 Skill 入口调用同一套后端。工具先确认论文身份并优先下载开放获取（Open Access，OA）版本；只有用户明确启用学校访问后，才会复用由用户本人完成登录的浏览器会话，从 IEEE Xplore、Wiley Online Library 或 Elsevier ScienceDirect 获取用户有权访问的全文。
+[![许可证：MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CLI 0.5.0](https://img.shields.io/badge/CLI-0.5.0-4F46E5.svg)](#cli-参数)
+
+> 论文标题 / DOI / URL → PDF 文件 + JSON/CSV 报告。
+
+`oa-paper-fetch` 先确认论文身份并优先尝试开放获取（Open Access，OA）候选；只有用户明确启用学校访问后，才会复用由用户本人完成登录的浏览器会话，从 IEEE Xplore、Wiley Online Library 或 Elsevier ScienceDirect 获取用户有权访问的全文。Codex、Claude Code 和命令行共用同一套后端。
 
 未指定保存位置时，论文默认进入 `~/Desktop/Papers`。学校登录会话在有效期内可以跨运行复用；工具不会读取、输入或保存学校账号、密码、MFA 验证码和恢复码。当前 CLI 版本为 `0.5.0`。
 
-## 工作流程
+## 什么是 oa-paper-fetch？
 
-1. **整理清单。** Skill 把 AI 找到的参考文献原样写成 `id,title,doi,url` CSV；只知道标题时让 DOI 和 URL 留空，不凭记忆补写。
-2. **规范化和去重。** 后端统一 DOI/URL 格式，优先按 DOI、其次按 URL 去重；标题相同但没有 DOI/URL 的记录只标记为疑似重复，不会静默合并。
-3. **严格解析标题。** title-only 记录同时查询 arXiv、Crossref 和 OpenAlex。只有至少两个独立来源确认同一 DOI，并且每个候选标题都达到确认阈值，才会自动采用该 DOI；即使单一来源的标题完全一致，也仍然属于歧义状态，不下载“最像”的候选。
-4. **优先获取 OA。** 依次尝试直接 PDF、确认后的 arXiv、OpenAlex、Unpaywall 和 Semantic Scholar 候选。
-5. **按需使用学校访问。** OA 未成功且具备已确认 DOI 或原始 URL 的记录，可以进入已登录的 IEEE、Wiley 或 Elsevier 浏览器会话。任务已有预期标题时，出版商页面的 `citation_title` 必须再次匹配后才会请求 PDF。
-6. **按书目信息准确命名。** 优先使用来源提供的年份、第一作者和完整标题；元数据不足时使用 arXiv ID、DOI、PII、IEEE 文档号或原始 URL 文件名，不再退化成只有 `rowN` 的名称。
-7. **保存状态并支持恢复。** PDF、规范化清单、详细报告和恢复状态都写入输出目录；再次运行同一清单时跳过已经验证的 PDF，只重试未完成项目。
-8. **安全分段。** 单次最多尝试 30 篇机构访问；超出的记录写入 `oa_fetch_pending.csv`，必须等用户再次要求后才能继续。
+- **一条入口接收真实参考文献。** 支持完整标题、DOI、URL、Markdown、CSV 和逐行纯文本。
+- **论文身份确认。** 不凭记忆猜 DOI，不把分数最高的标题候选直接当成答案；只有两个来源确认同一 DOI 才接受纯标题输入。
+- **文件与状态。** 重新检查下载 URL，校验文件大小和 `%PDF` 文件头，并保存清单、逐篇结果、待处理记录和续跑状态。
+
+## 能力概览
+
+| 能力 | 做什么 | 什么时候使用 |
+| --- | --- | --- |
+| Codex / Claude Code Skill | 把 AI 对话或参考文献清单转换成同一套清单驱动任务 | 下载代理刚刚找到或推荐的论文 |
+| 单篇命令行 | 接收一个 `--title`、`--doi` 或 `--url` | 获取或诊断一篇已知论文 |
+| 批量清单 | 规范化、校验、去重、报告并续跑 CSV、Markdown 或纯文本输入 | 批量下载并保留逐篇结果 |
+| 可选学校访问 | OA 未成功后，复用用户已登录的 IEEE、Wiley 或 Elsevier 浏览器会话 | 获取用户本来就有权访问的论文 |
+
+## 架构
+
+```mermaid
+flowchart LR
+    input["标题 / DOI / URL / 批量清单"] --> manifest["manifest.py<br/>规范化 · 去重"]
+    manifest --> resolve["DOI 确认<br/>arXiv · Crossref · OpenAlex"]
+    resolve --> oa["OA 来源<br/>直接链接 · arXiv · OpenAlex<br/>Unpaywall · Semantic Scholar"]
+    oa -->|PDF 候选| check["URL 策略 · 大小 · %PDF"]
+    oa -->|OA 未成功 + --institutional| institutional["institutional_fetch.py<br/>IEEE · Wiley · Elsevier"]
+    institutional --> check
+    check --> output["PDF · JSON/CSV · 状态文件"]
+```
 
 ## 快速开始
 
@@ -97,6 +119,17 @@ python3 oa_fetch.py \
 ```
 
 成功后，PDF 和报告位于 `~/Desktop/Papers`。如需启用 Unpaywall，在本机环境设置 `UNPAYWALL_EMAIL`；程序不会打印该变量的值。
+
+## 工作流程
+
+1. **整理清单。** Skill 把 AI 找到的参考文献原样写成 `id,title,doi,url` CSV；只知道标题时让 DOI 和 URL 留空，不凭记忆补写。
+2. **规范化和去重。** 后端统一 DOI/URL 格式，优先按 DOI、其次按 URL 去重；标题相同但没有 DOI/URL 的记录只标记为疑似重复，不会静默合并。
+3. **严格解析标题。** title-only 记录同时查询 arXiv、Crossref 和 OpenAlex。只有至少两个独立来源确认同一 DOI，并且每个候选标题都达到确认阈值，才会自动采用该 DOI；即使单一来源的标题完全一致，也仍然属于歧义状态，不下载“最像”的候选。
+4. **优先获取 OA。** 依次尝试直接 PDF、确认后的 arXiv、OpenAlex、Unpaywall 和 Semantic Scholar 候选。
+5. **按需使用学校访问。** OA 未成功且具备已确认 DOI 或原始 URL 的记录，可以进入已登录的 IEEE、Wiley 或 Elsevier 浏览器会话。任务已有预期标题时，出版商页面的 `citation_title` 必须再次匹配后才会请求 PDF。
+6. **按书目信息准确命名。** 优先使用来源提供的年份、第一作者和完整标题；元数据不足时使用 arXiv ID、DOI、PII、IEEE 文档号或原始 URL 文件名，不再退化成只有 `rowN` 的名称。
+7. **保存状态并支持恢复。** PDF、规范化清单、详细报告和恢复状态都写入输出目录；再次运行同一清单时跳过已经验证的 PDF，只重试未完成项目。
+8. **安全分段。** 单次最多尝试 30 篇机构访问；超出的记录写入 `oa_fetch_pending.csv`，必须等用户再次要求后才能继续。
 
 ## PDF 命名
 
