@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
 import shutil
 import subprocess
 import sys
@@ -105,64 +104,6 @@ def pandoc_no_highlight_arg(pandoc_path: str, timeout: float = DEFAULT_COMMAND_T
 
 def read_json(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
-
-
-THESIS_FRONT_MATTER_KEYS = (
-    "cover",
-    "cover_style",
-    "封面",
-    "degree_type",
-    "学位类型",
-    "论文级别",
-    "advisor",
-    "导师",
-    "指导教师",
-    "指导教师姓名",
-    "degree_category",
-    "学位类别",
-    "discipline",
-    "学科名称",
-    "专业名称",
-    "research_field",
-    "研究方向",
-)
-
-
-def source_has_thesis_front_matter(source: Path) -> bool:
-    """Peek the leading ``--- ... ---`` block for thesis-cover fields.
-
-    Lets the build skip the course --course/--student-name/--student-id
-    requirement when the cover is fully described by the Markdown front matter.
-    """
-    try:
-        text = source.read_text(encoding="utf-8")
-    except OSError:
-        return False
-    if not text.startswith("---"):
-        return False
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return False
-    for idx in range(1, len(lines)):
-        if lines[idx].strip() in {"---", "..."}:
-            block = lines[1:idx]
-            break
-    else:
-        return False
-    for raw in block:
-        match = re.match(r"^\s*([^:：#][^:：]*?)\s*[:：]\s*(.*?)\s*$", raw)
-        if not match:
-            continue
-        key = match.group(1).strip()
-        value = match.group(2).strip().strip("'\"")
-        if not value:
-            continue
-        if key == "cover" or key == "cover_style" or key == "封面":
-            if value.strip().lower() == "thesis":
-                return True
-        elif key in THESIS_FRONT_MATTER_KEYS:
-            return True
-    return False
 
 
 def project_path(path: Path, project_dir: Path) -> Path:
@@ -330,6 +271,17 @@ def validate_prepare_qa(report: dict[str, object]) -> list[str]:
     return failures
 
 
+def validate_cover_fields(report: dict[str, object]) -> list[str]:
+    cover = report.get("cover", {})
+    if not isinstance(cover, dict):
+        return []
+    if cover.get("enabled") is False or cover.get("thesis") is True:
+        return []
+    if all(cover.get(key) for key in ("course", "studentname", "studentid")):
+        return []
+    return ["course, student name, and student ID are required for a course cover"]
+
+
 def validate_postprocess_qa(qa: dict[str, object]) -> list[str]:
     failures: list[str] = []
     if qa.get("body_has_abstract_section") is not False:
@@ -455,21 +407,6 @@ def main() -> int:
             raise RuntimeError("--command-timeout must be greater than zero")
         if args.skip_compile and args.output_pdf:
             raise RuntimeError("--output-pdf requires compilation; omit --output-pdf when using --skip-compile.")
-        if not args.no_cover and not source_has_thesis_front_matter(source):
-            missing_fields = [
-                name
-                for name, value in (
-                    ("--course", args.course),
-                    ("--student-name", args.student_name),
-                    ("--student-id", args.student_id),
-                )
-                if not value
-            ]
-            if missing_fields:
-                raise RuntimeError(
-                    ", ".join(missing_fields)
-                    + " are required unless --no-cover is used or a 学位论文 front matter cover is provided."
-                )
         project_dir = source.parent
         work_dir = project_path(args.work_dir, project_dir)
         tex_path = project_path(args.tex, project_dir)
@@ -529,7 +466,7 @@ def main() -> int:
 
         prepare_report = work_dir / "prepare_report.json"
         prepare = read_json(prepare_report)
-        failures = validate_prepare_qa(prepare)
+        failures = validate_prepare_qa(prepare) + validate_cover_fields(prepare)
         if failures:
             print("Prepare QA failed: " + "; ".join(failures), file=sys.stderr)
             return 1

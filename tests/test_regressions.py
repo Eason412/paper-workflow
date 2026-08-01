@@ -103,6 +103,59 @@ class PrepareRegressionTests(unittest.TestCase):
 
 
 class BuildRegressionTests(unittest.TestCase):
+    def test_cover_field_validation_uses_prepared_values(self) -> None:
+        course_cover = {
+            "cover": {
+                "enabled": True,
+                "thesis": False,
+                "course": "机器学习",
+                "studentname": "张三",
+                "studentid": "20260001",
+            }
+        }
+        self.assertEqual(build.validate_cover_fields(course_cover), [])
+
+        missing = {"cover": {"enabled": True, "thesis": False}}
+        self.assertEqual(
+            build.validate_cover_fields(missing),
+            ["course, student name, and student ID are required for a course cover"],
+        )
+
+        for cover in ({"enabled": False}, {"enabled": True, "thesis": True}):
+            with self.subTest(cover=cover):
+                self.assertEqual(build.validate_cover_fields({"cover": cover}), [])
+
+    @unittest.skipUnless(shutil.which("pandoc"), "pandoc is required for build integration")
+    def test_course_cover_front_matter_builds_without_cli_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "report.md"
+            source.write_text(
+                "---\n"
+                "course: 机器学习\n"
+                "student_name: 张三\n"
+                "student_id: 20260001\n"
+                "---\n"
+                "# 课程报告\n\n"
+                "## 正文\n\n内容。\n",
+                encoding="utf-8",
+            )
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "build_course_report.py"),
+                    str(source),
+                    "--skip-compile",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=30,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
     def test_project_lock_rejects_a_second_build_until_release(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)
@@ -184,18 +237,6 @@ class BuildRegressionTests(unittest.TestCase):
                 [sys.executable, "-c", "import time; time.sleep(1)"],
                 timeout=0.05,
             )
-
-    def test_thesis_cover_core_and_supplementary_trigger_fields_are_distinct(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            supplementary = root / "supplementary.md"
-            supplementary.write_text("---\nclassification: TP391\n---\n# title\n", encoding="utf-8")
-            core = root / "core.md"
-            core.write_text("---\nadvisor: Teacher\n---\n# title\n", encoding="utf-8")
-
-            self.assertFalse(build.source_has_thesis_front_matter(supplementary))
-            self.assertTrue(build.source_has_thesis_front_matter(core))
-
 
 class PostprocessRegressionTests(unittest.TestCase):
     def test_reference_split_ignores_unpaired_body_sentinel(self) -> None:
