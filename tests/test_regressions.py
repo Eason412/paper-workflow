@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -102,6 +103,31 @@ class PrepareRegressionTests(unittest.TestCase):
 
 
 class BuildRegressionTests(unittest.TestCase):
+    def test_project_lock_rejects_a_second_build_until_release(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            first = build.acquire_project_lock(project, timeout=0.1)
+            try:
+                with self.assertRaisesRegex(RuntimeError, "another build still holds"):
+                    build.acquire_project_lock(project, timeout=0.01)
+            finally:
+                first.close()
+
+            released = build.acquire_project_lock(project, timeout=0.1)
+            released.close()
+
+    def test_pandoc_highlight_flag_tracks_installed_cli(self) -> None:
+        modern_help = mock.Mock(stdout="--syntax-highlighting=STYLE\n")
+        legacy_help = mock.Mock(stdout="--no-highlight\n")
+
+        with mock.patch.object(build, "run", return_value=modern_help):
+            self.assertEqual(
+                build.pandoc_no_highlight_arg("pandoc"),
+                "--syntax-highlighting=none",
+            )
+        with mock.patch.object(build, "run", return_value=legacy_help):
+            self.assertEqual(build.pandoc_no_highlight_arg("pandoc"), "--no-highlight")
+
     def test_source_cannot_collide_with_generated_report_body(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

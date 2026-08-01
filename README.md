@@ -22,7 +22,7 @@
 
 运行构建脚本需要：
 
-- Python 3；仓库 CI 使用 Python 3.11。
+- Python 3；仓库 CI 使用 Python 3.11，并在 Ubuntu、macOS 和 Windows 上运行纯 Python 回归测试。
 - [Pandoc](https://pandoc.org/)；命令名为 `pandoc`。
 - LaTeX 编译器：优先使用 `tectonic`，未找到时回退到 `xelatex`。
 
@@ -290,9 +290,9 @@ python3 -m unittest -v tests.test_regressions
 python3 scripts/run_smoke_tests.py
 ```
 
-- 回归测试覆盖路径碰撞、并发锁、超时诊断、标题处理、图片解析、引用、公式和长表后处理。
+- 回归测试覆盖路径碰撞、并发锁、Pandoc CLI 参数兼容、超时诊断、标题处理、图片解析、引用、公式和长表后处理。
 - smoke test 会处理仓库示例；本机存在 Tectonic 或 XeLaTeX 时还会真实编译 PDF。
-- GitHub Actions 会安装 Pandoc、Tectonic、Poppler 和 qpdf，并要求完整 PDF 路径通过。
+- GitHub Actions 在 Ubuntu、macOS 和 Windows 上运行回归测试；完整 PDF smoke 同时覆盖 Pandoc 3.1.3 和 3.10.1，并在 Ubuntu 安装 Tectonic、Poppler 和 qpdf。
 
 如果本地需要强制要求编译器和 PDF 工具全部存在，可以使用与 CI 相同的环境变量：
 

@@ -5,10 +5,15 @@ on:
   pull_request:
 
 jobs:
-  smoke:
-    runs-on: ubuntu-latest
+  regression:
+    name: Regression (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -18,8 +23,40 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Pandoc and fonts
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends pandoc fonts-noto-cjk poppler-utils qpdf
+      - name: Check Python syntax
+        run: python -m compileall -q scripts tests
+
+      - name: Run regression tests
+        run: python -m unittest -v tests.test_regressions
+
+  smoke:
+    name: Full PDF smoke (Pandoc ${{ matrix.pandoc-version }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        pandoc-version: ["3.1.3", "3.10.1"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install fonts and PDF tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk poppler-utils qpdf
+
+      - name: Install pinned Pandoc
+        uses: pandoc/actions/setup@v1.1.1
+        with:
+          version: ${{ matrix.pandoc-version }}
+
+      - name: Check Pandoc
+        run: pandoc --version
 
       - name: Cache Tectonic packages
         uses: actions/cache@v5
@@ -34,12 +71,6 @@ jobs:
 
       - name: Check PDF compiler
         run: tectonic --version
-
-      - name: Check Python syntax
-        run: python3 -m py_compile scripts/*.py tests/*.py
-
-      - name: Run regression tests
-        run: python3 -m unittest -v tests.test_regressions
 
       - name: Run smoke tests
         env:
