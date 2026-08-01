@@ -1,28 +1,42 @@
 # md-course-report-to-pdf
 
 [![Smoke Test](https://github.com/Eason412/md-course-report-to-pdf/actions/workflows/smoke.yml/badge.svg)](https://github.com/Eason412/md-course-report-to-pdf/actions/workflows/smoke.yml)
+[![Code: MIT](https://img.shields.io/badge/Code-MIT-blue.svg)](#许可证与第三方材料)
+
+> Markdown → Pandoc/`ctexart` → Tectonic/XeLaTeX → PDF + QA JSON。
 
 把中文 Markdown 课程报告、课程论文或作业报告转换为带封面、摘要、目录、图表编号、公式编号和参考文献的 LaTeX/PDF。它既可以安装为 Codex skill，也可以直接作为命令行工具运行。
 
 项目内置 Pandoc/`ctexart` 模板、Markdown 与 LaTeX 两阶段 QA，以及 Tectonic/XeLaTeX 编译封装。模板参考了南京理工大学学位论文格式，但针对课程报告做了取舍；本项目不是学校官方模板，正式提交前仍应核对任课教师、学院或学校的当前要求。
 
-## 能做什么
+## 能力概览
 
-- 从一个 Markdown 文件生成课程报告封面、中文摘要、英文摘要、目录和正文。
-- 支持无封面模式，以及由 YAML front-matter 驱动的学位论文样式封面。
-- 将 Markdown pipe table 转换为可跨页的 `booktabs`/`longtable` 表格。
-- 自动编号章节、图片、表格和普通展示公式。
-- 将正文数字引用转换为上标引用，并检查引用与参考文献编号是否对应。
-- 检查图片路径、表题、手写编号、非法引用、未编号公式、目录配置和长表结构。
-- 在隔离目录中编译 LaTeX；同一报告目录中的并发构建会自动串行化，成功 PDF 以原子方式写入。
+| 能力 | 做什么 | 什么时候使用 |
+| --- | --- | --- |
+| 课程报告生成 | 从一个 Markdown 文件生成封面、中英文摘要、目录和正文 | 课程论文、实验报告、作业报告 |
+| 三种封面模式 | 支持默认课程报告封面、无封面和由 YAML 风格 front-matter 驱动的学位论文样式封面 | 适配不同课程和提交要求 |
+| 学术排版 | 生成可跨页表格，自动编号章节、图片、表格和普通展示公式，并转换数字引用 | 避免手工维护 LaTeX 编号和长表 |
+| 双阶段 QA | 检查 Markdown 输入以及生成后的 LaTeX 结构，输出两份机器可读报告 | 在交付前定位图片、表格、公式、引用和目录问题 |
+| 构建控制 | 使用临时编译目录、串行化同目录并发构建、限制错误输出，并原子写入成功 PDF | 脚本化构建或反复修改报告 |
 
 详细排版规则、官方规范映射和已知偏离见 [`references/format-qa.md`](references/format-qa.md)。
+
+## 架构
+
+```mermaid
+flowchart LR
+    input["Markdown<br/>本地图片<br/>front matter"] --> prepare["prepare_course_report.py<br/>预处理 · Markdown QA"]
+    prepare --> pandoc["Pandoc<br/>ctexart · Lua filter"]
+    pandoc --> postprocess["postprocess_course_tex.py<br/>LaTeX QA"]
+    postprocess --> compile["Tectonic / XeLaTeX<br/>编译 PDF"]
+    compile --> output["course_report.pdf<br/>course_report.tex<br/>prepare_report.json<br/>postprocess_qa.json"]
+```
 
 ## 前置条件
 
 运行构建脚本需要：
 
-- Python 3；仓库 CI 使用 Python 3.11，并在 Ubuntu、macOS 和 Windows 上运行纯 Python 回归测试。
+- Python 3.10 或更高版本；仓库 CI 使用 Python 3.11，并在 Ubuntu、macOS 和 Windows 上运行纯 Python 回归测试。
 - [Pandoc](https://pandoc.org/)；命令名为 `pandoc`。
 - LaTeX 编译器：优先使用 `tectonic`，未找到时回退到 `xelatex`。
 
@@ -218,6 +232,8 @@ submit_date: 2026 年 6 月
 ---
 ```
 
+这里使用的是 YAML 风格的平面 `key: value` front-matter；当前解析器不支持嵌套对象、数组、多行标量等完整 YAML 语法。
+
 `degree_type`、`advisor`、`degree_category`、`discipline`、`research_field` 中任一字段非空也会触发学位论文封面；建议显式填写 `cover: thesis`，避免意外切换。命令行参数优先于 front-matter 中的同类字段。
 
 这个封面只覆盖仓库已实现的附件 2.1 样式。书脊、封二、英文封二、原创性声明、使用授权声明、双面印刷页眉页脚等要求不在当前自动化范围内。
@@ -229,11 +245,12 @@ submit_date: 2026 年 6 月
 | 输出 | 默认值 | 说明 |
 | --- | --- | --- |
 | LaTeX | `course_report.tex` | Pandoc 生成并经过后处理的完整 TeX |
-| PDF | `course_report.pdf` | 使用 `--pdf` 可以更改文件名，但路径必须位于报告目录内 |
+| PDF | `course_report.pdf` | 使用 `--pdf` 可以更改主 PDF 的文件名或路径；路径必须以 `.pdf` 结尾 |
 | 工作目录 | `latex/` | 存放预处理正文、元数据和 QA JSON |
 | 额外 PDF 副本 | 不生成 | 使用 `--output-pdf PATH` 将成功 PDF 再复制到指定位置 |
 
 `--output-pdf` 只能在实际编译 PDF 时使用，不能与 `--skip-compile` 同时使用。
+使用 `--skip-compile` 时不会创建 PDF；成功 JSON 中的 `pdf` 字段表示原本配置的目标路径，不代表该文件已经生成。
 
 ## 常用参数
 
@@ -321,6 +338,7 @@ tests/test_regressions.py          回归测试
 ## 当前边界
 
 - 这是面向课程报告的自动排版工具，不是完整的正式学位论文提交系统。
+- 输入 Markdown 必须可信：工具允许 Pandoc `raw_tex`/`raw_html`，并会调用本机 LaTeX 编译器；临时编译目录不是安全沙箱。
 - 模板提供字体回退，但不同系统的实际字体可能不同；学校要求固定字体时，应安装对应字体并检查最终 PDF。
 - QA 检查结构和已知错误模式，不判断论述质量、数据真实性、引用真实性、摘要字数或学校对参考文献数量的要求。
 - 图片内容、机构 logo、官方文档和用户自行提供的素材可能不属于本项目的 MIT 授权范围。
