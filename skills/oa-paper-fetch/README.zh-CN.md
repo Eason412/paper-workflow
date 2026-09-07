@@ -24,7 +24,7 @@ Codex 调用示例：
 先尝试开放获取，未完成项使用已配置的学校访问。
 ```
 
-从本目录或总仓库启动 Claude Code 时，项目级 `/oa-paper-fetch` 入口转交同一份 [SKILL.md](SKILL.md)。个人安装可将本目录完整复制或链接到 `~/.claude/skills/oa-paper-fetch`。重复安装时需核对实际调用入口。
+Codex 通过 [SKILL.md](SKILL.md) 读取规范工作流，通过 `agents/openai.yaml` 获取 Skill 元数据。安装入口统一指向本目录。
 
 ## OA 文献获取
 

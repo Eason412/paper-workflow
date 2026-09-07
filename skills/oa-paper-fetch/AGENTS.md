@@ -1,201 +1,48 @@
-# paper-fetch AI development manual
+# OA Paper Fetch 维护规则
 
-## Scope
+本文件仅适用于 `skills/oa-paper-fetch/`。下载工作流以 [SKILL.md](SKILL.md) 为准，项目共同规则由根目录维护；本文件保留容易被代码修改破坏的产品契约。
 
-This file applies only to the `oa-paper-fetch` Skill directory inside Paper
-Workflow. In the instructions below, repository root means this Skill's root.
-Do not mix source, artifacts, or runtime rules from sibling Skills.
+## 源码与测试导航
 
-This is the canonical maintenance manual for AI agents changing the repository.
-It is not the paper-download workflow itself. For a user request to find or
-download papers, read the root `SKILL.md` completely and follow it.
+| 范围 | 实现 | 相关测试 |
+| --- | --- | --- |
+| CLI、身份解析、OA 与机构编排 | [oa_fetch.py](oa_fetch.py) | [CLI](tests/test_cli_contract.py)、[标题解析](tests/test_title_resolution.py)、[OA 优先](tests/test_oa_first.py) |
+| 浏览器会话与出版商边界 | [institutional_fetch.py](institutional_fetch.py) | [机构边界](tests/test_institutional_boundaries.py)、[URL 安全](tests/test_oa_url_safety.py) |
+| 清单与稳定身份 | [manifest.py](manifest.py) | [清单](tests/test_manifest.py) |
+| 偏好与依赖 | [config.py](config.py)、[requirements.txt](requirements.txt) | [配置](tests/test_config.py) |
+| 文件、状态与恢复 | [store.py](store.py) | [恢复](tests/test_store_resume.py)、[命名](tests/test_filename_metadata.py)、[回归](tests/test_recovery_regressions.py) |
+| Codex 入口与文档 | [SKILL.md](SKILL.md)、[agents/openai.yaml](agents/openai.yaml) | [入口契约](tests/test_skill_contract.py) |
 
-Claude Code loads ancestor `CLAUDE.md` files additively. Treat unrelated
-ancestor-project facts as out of scope for this repository. If an inherited
-instruction conflicts with this repository-local contract and cannot be
-reconciled safely, stop and report the conflict instead of mixing projects.
+OA 层保持标准库实现，Playwright 仅用于可选机构访问。命令、配置、状态、依赖或安装方式变化时，同时更新本目录的中英文 README；代理执行行为变化同步 `SKILL.md`。
 
-## Document roles and authority
+## 身份与获取契约
 
-Keep each document in one role:
+- 保留来源标题、DOI 和 URL；DOI/URL 用于硬去重，纯标题相同仅标记可能重复。最终输入 ID 与独立标题身份不得碰撞。
+- 标题确认需要至少两个独立来源支持同一个 DOI。阈值以源码常量为准；arXiv DOI 别名不得掩盖出版商 DOI 冲突。
+- 身份歧义、无法解析、出版商标题不匹配或不可核验时，保留状态和证据，不得由机构回退绕过。
+- OA 先于机构访问；机构范围仅限 IEEE Xplore、Wiley Online Library、Elsevier ScienceDirect。修改允许范围需要明确的产品授权和边界测试。
+- 保留 OA SSRF、端口和逐跳重定向检查，机构同出版商 PDF 检查、80 MiB 上限，以及下载与续传一致的轻量 PDF 校验。
 
-| File | Audience and authority |
-| --- | --- |
-| `AGENTS.md` | Canonical development, safety, change-coupling, and verification rules for AI maintainers. |
-| `CLAUDE.md` | Thin Claude Code router to this file and the root `SKILL.md`. It must not copy policy. |
-| `SKILL.md` | Only operational contract for an AI executing paper-download requests. |
-| `.claude/skills/oa-paper-fetch/SKILL.md` | Thin project Skill that routes Claude Code to the root `SKILL.md`. |
-| `README.md` | English guide for people. |
-| `README.zh-CN.md` | Simplified Chinese guide for people. |
-| Python modules and tests | Runtime truth for implemented behavior, schemas, constants, and regressions. |
+## 登录与批次
 
-When documents and code disagree, do not silently choose the convenient
-version. Preserve the stricter safety boundary, inspect the implementation and
-tests, then update every affected contract in the same change.
+浏览器可在本机持久化登录会话，但 Skill 不得读取、导出或同步 `~/.oa-paper-fetch/profile`。用户在可见浏览器中完成机构登录；不自动填写密码、SSO/MFA，不绕过验证码、付费或访问控制，不使用 Sci-Hub。
 
-`README.md` and `README.zh-CN.md` must remain semantically equivalent. A
-user-visible CLI, default, status, file, dependency, safety rule, or limitation
-change requires both files to be updated. Translation does not need to be
-line-for-line, but commands, numbers, paths, and behavior must match.
+会话有效性由本次访问判断，保留缺失/过期登录的 pending 状态。机构访问保持串行、基础间隔至少 4 秒、jitter 0–10 秒、单轮最多 30 次；累计三次阻断后停止，不自动追加批次。
 
-## Architecture map
+Skill 自动触发不扩大依赖安装、偏好保存、访问范围或登录权限。
 
-| Path | Responsibility |
-| --- | --- |
-| `oa_fetch.py` | CLI, input parsing, title identity resolution, OA candidates, downloads, reporting, exit codes, and institutional fallback orchestration. |
-| `institutional_fetch.py` | Visible login, isolated Playwright profile, publisher allowlist, citation metadata, publisher-title guard, pacing, cap, and block-streak stop. |
-| `manifest.py` | `id,title,doi,url` normalization, validation, hard DOI/URL deduplication, possible title duplicates, canonical identity, and manifest hash. |
-| `config.py` | Non-sensitive preference whitelist, defaults, validation, precedence, permissions, and atomic persistence. |
-| `store.py` | Atomic writes, `%PDF` validation, collision-safe filenames, hard-link migration, state, and pending manifests. |
-| `requirements.txt` | Optional institutional-browser dependency only; the OA layer must remain standard-library-only. |
-| `agents/openai.yaml` | Codex Skill UI metadata and implicit-invocation setting only. |
-| `tests/` | Behavioral, safety, orchestration, storage, and Skill/document contract evidence. |
+## 存储与 CLI
 
-The OA layer uses the Python standard library. Playwright is an optional
-dependency used only for institutional access.
+- 保留稳定身份、8 位文件名后缀和 240 字节 UTF-8 限制；PDF、配置、清单、状态和报告采用原子写入。
+- 命名迁移先校验旧 PDF，再创建无覆盖硬链接、保存状态，最后移除旧名称；保存失败保留原文件。损坏状态拒绝加载并返回 `4`，不静默重置。
+- 保持四种论文选择器互斥，`--manifest-out` 必须与 `--batch` 配合；无输入模式限于帮助、版本、登录和独立偏好保存。
+- 常规结果 JSON 写入 stdout，进度写入 stderr。保留 `candidate/downloaded/exists/duplicate/failed/pending` 区别。
+- dry-run 可查询候选并写清单/结果报告，不写 PDF、恢复状态或 pending 清单，不进入机构获取。
+- 保留退出码：`0` 成功/可用预检，`1` 失败或 pending，`2` 参数/配置错误，`3` 输入不可用，`4` 传输/持久化失败。
 
-## Non-negotiable product invariants
+## 验证
 
-### Identity and manifest
-
-- Preserve exact source titles, DOI values, and URLs. Do not invent or repair
-  bibliographic data from memory.
-- Hard-deduplicate DOI first and URL second. A title-only match is only a
-  possible duplicate and must not be silently merged.
-- Treat title-only input as identity resolution, not permission to select the
-  highest-scoring search result.
-- Keep the confirmation rule conservative: at least two independent sources
-  must agree on one DOI at the confirmation threshold. An exact title from one
-  source alone is insufficient.
-- An exact arXiv repository DOI can be an alias only under the corroborated
-  publisher-DOI rule implemented in `resolve_title_identity`. It must never
-  hide two conflicting publisher DOI values.
-- A title ambiguity, unresolved title, publisher-title mismatch, or
-  unverifiable publisher title must stop PDF acquisition for that identity and
-  remain auditable in results.
-
-### OA and institutional order
-
-- OA always runs before institutional access.
-- Institutional fallback is limited to IEEE Xplore, Wiley Online Library, and
-  Elsevier ScienceDirect. Do not expand the allowlist without an explicit
-  product decision, implementation changes, boundary tests, and documentation.
-- Only an OA miss with a confirmed DOI or supported original URL may enter the
-  institutional backend.
-- When an expected title exists, require the publisher page to expose
-  `citation_title` and enforce the publisher-title guard before resolving or
-  requesting the PDF. Preserve `publisher_title_unverifiable` when the page
-  omits that title.
-
-### Authentication and authorization
-
-- Never ask for, read, type, print, copy, store, upload, or commit school
-  passwords, SSO/MFA/recovery codes, Cookies, Authorization headers, tokens, or
-  Playwright storage state.
-- Never inspect the contents of `~/.oa-paper-fetch/profile`. It may only be
-  treated as an opaque local session directory.
-- Authentication is completed by the user in a visible browser. Do not
-  automate credential fields, CAPTCHA, paywall bypass, anti-bot evasion, proxy
-  rotation, or shared credentials.
-- Do not use Sci-Hub or any source that bypasses access controls.
-- Skill discovery or implicit invocation is not permission to install
-  dependencies, change saved preferences, broaden publisher access, or handle
-  credentials. Preserve the authorization rules in the root `SKILL.md`.
-- A previous successful login is not proof that the session is still valid.
-  Preserve `profile_missing_login_required` and `login_refresh_required` as
-  explicit pending states.
-
-### Network, pacing, and limits
-
-- Keep paper processing serial.
-- Preserve the institutional base delay of at least 4 seconds, jitter range of
-  0--10 seconds, and cap of 1--30 attempts per run.
-- Never automatically start another institutional batch to work around the cap.
-- Preserve the stop after three HTTP 4xx/challenge/login-wall responses since
-  the last successful institutional PDF.
-- Keep OA URL SSRF checks, redirect revalidation, and OA standard-port
-  restrictions. Keep same-publisher institutional PDF checks, the 80 MiB
-  limit, and `%PDF` signature validation.
-
-### Storage and recovery
-
-- Preserve canonical identity, the stable 8-character filename suffix, and the
-  240-byte UTF-8 filename limit.
-- Do not overwrite a distinct existing target.
-- Keep PDF, config, state, manifest, and report writes atomic.
-- Naming migration must verify the old PDF, create a non-overwriting hard link,
-  persist the new state, then remove the old name. Roll back the new link if the
-  state write fails.
-- `candidate` is not a download. Keep `candidate`, `downloaded`, `exists`,
-  `duplicate`, `failed`, and `pending` distinct in code, reports, docs, and
-  handoff messages.
-
-### CLI, input, and result contracts
-
-- Preserve the mutually exclusive paper selectors `--doi`, `--title`, `--url`,
-  and `--batch`. `--manifest-out` requires `--batch`; outside help and version,
-  login and standalone config saves remain the only selector-free operational
-  modes.
-- Keep Markdown, CSV, and one-item-per-line text parsing auditable. Invalid
-  rows remain represented with a validation reason, while only executable rows
-  enter download orchestration. Do not silently repair missing identifiers.
-- Paper runs that reach final reporting, manifest-preflight runs, and
-  successful standalone config saves write JSON to stdout. `--format text`
-  adds progress to stderr. Help, version, visible login, argument errors, and
-  early failures may use human-readable output instead.
-- Preserve exit meanings: `0` successful special mode, resolved work, or usable
-  preflight; `1` failed/pending; `2` invalid CLI/config; `3` missing/empty input
-  or unusable preflight; and `4` transport or persistence failure.
-- A dry run may query candidates and write the normalized manifest and result
-  reports, but it must not write a PDF, state, or pending manifest and must not
-  enter institutional fallback. `candidate` remains evidence, not a download.
-
-## Change-coupling matrix
-
-Every behavior change must update its evidence and public contracts:
-
-| Change | Required code/tests/docs review |
-| --- | --- |
-| Title scoring, DOI confirmation, arXiv aliases | `oa_fetch.py`; `tests/test_title_resolution.py`; title-only sections in `SKILL.md` and both READMEs. |
-| OA source order or institutional retry orchestration | `oa_fetch.py`; `tests/test_oa_first.py`; `institutional_fetch.py` when applicable; `SKILL.md` and both READMEs. |
-| Publisher allowlist, landing/PDF URL rules, citation metadata | `institutional_fetch.py`; `tests/test_institutional_boundaries.py`; `tests/test_oa_url_safety.py`; `SKILL.md` and both READMEs. |
-| Config key, default, range, or precedence | `config.py`; `tests/test_config.py`; config tables in `SKILL.md` and both READMEs. |
-| Manifest fields, validation, deduplication, canonical identity | `manifest.py`; `tests/test_manifest.py`; manifest instructions in `SKILL.md` and both READMEs. |
-| CLI selectors, batch parsing, manifest-only mode, dry-run, stdout/stderr, exit codes | `oa_fetch.py` and `manifest.py` when applicable; focused CLI/orchestration tests; `SKILL.md` and both READMEs for user-visible changes. |
-| Filename, atomic write, state, migration, or pending schema | `store.py` and relevant `oa_fetch.py` paths; `tests/test_store_resume.py`; `tests/test_filename_metadata.py`; both READMEs and `SKILL.md` when agent behavior changes. |
-| Report field, status, pending reason, or exit code | `oa_fetch.py`; orchestration/report tests; result sections in `SKILL.md` and both READMEs. |
-| Python minimum, dependency, or install flow | `requirements.txt`; import boundaries; both READMEs; `SKILL.md` when execution changes; tests proving OA does not require Playwright. |
-| CLI version | `oa_fetch.py` `VERSION`; `--version`; both README version statements; document-contract tests. |
-| Codex UI metadata or Claude project wrapper | `agents/openai.yaml` or `.claude/skills/oa-paper-fetch/SKILL.md`; `tests/test_skill_contract.py`; confirm implicit invocation does not create new authorization. |
-| Human documentation structure | Both READMEs, language links, repository maps, and `tests/test_skill_contract.py`. |
-| AI maintenance policy | `AGENTS.md`; keep `CLAUDE.md` a thin pointer. |
-
-Do not update one README and leave the other stale.
-
-## Working method
-
-1. Inspect `git status --short --branch`. Preserve unrelated and pre-existing
-   changes; never reset or discard them.
-2. Read the exact implementation and tests for the behavior being changed.
-   Read `SKILL.md` when the change affects an agent-executed download.
-3. State the intended behavior, write or update a regression test, and confirm
-   the test fails for the intended reason when practical.
-4. Make the smallest implementation change that satisfies the contract.
-5. Update every affected source-of-truth. Update both human READMEs together
-   when the user-visible contract, default, dependency, status, output, safety
-   rule, or limitation changes; do not churn them for internal-only refactors.
-6. Run proportional verification and inspect the final diff.
-7. Report code, test, live-network, login, commit, and push states separately.
-
-Do not refactor adjacent code, add publishers, loosen limits, or introduce new
-configuration merely because it appears useful. Product-policy changes require
-an explicit request.
-
-## Verification levels
-
-### Required offline gate
-
-Run from the repository root:
+本目录的离线检查：
 
 ```bash
 python3 -m unittest discover -s tests -v
@@ -205,62 +52,4 @@ python3 oa_fetch.py --version
 git diff --check
 ```
 
-The tests may write only temporary artifacts. Do not claim the gate passed
-unless the commands were run in the current change.
-
-### Optional live OA smoke
-
-Run a real OA fetch only when network use and a temporary output directory are
-within the user's request. Keep the result separate from offline test status.
-Do not commit PDFs or reports.
-
-### User-gated institutional verification
-
-Institutional login and publisher downloads require the user's entitlement and
-visible interaction. Do not start them merely to validate a code or docs
-change. If explicitly requested, use a small batch, preserve pacing, never read
-the profile, and report browser launch, completed user authentication, article
-page validation, and PDF validation as separate checkpoints.
-
-## Secrets, local state, and generated artifacts
-
-Never add these to source control or AI prompts:
-
-- `~/.oa-paper-fetch/profile` or any browser profile;
-- `~/.oa-paper-fetch/config.json` contents when they contain local paths that
-  are irrelevant to the task;
-- passwords, MFA/SSO codes, Cookies, tokens, secrets, or authorization data;
-- downloaded PDFs, `oa_fetch_results.*`, `oa_fetch_state.json`,
-  `oa_fetch_manifest.csv`, `oa_fetch_pending.csv`, logs, caches,
-  `__pycache__`, or virtual environments.
-
-The ignored repository-local `pdfs/` directory is local run output, not a
-fixture or source directory. Do not inspect or delete it unless the current
-task explicitly places it in scope. Interrupted atomic writes can leave
-`*.part-*` files beside their intended target; remove only leftovers
-attributable to the current task, and never treat them as source or delete
-unrelated user output.
-
-Use sanitized placeholders in tests and documentation. Do not add screenshots
-of institutional pages unless the user explicitly requests diagnostics and
-understands that campus or account information may be visible.
-
-## Definition of done
-
-A change is complete only when:
-
-- requested behavior and scope are implemented without unrelated edits;
-- affected tests were added or updated and the required offline gate passes;
-- the root `SKILL.md` still expresses the canonical download workflow;
-- the Claude project Skill and `CLAUDE.md` remain thin routers;
-- `README.md` and `README.zh-CN.md` agree on commands, defaults, numbers,
-  statuses, output files, safety boundaries, and limitations;
-- no secret, profile content, generated paper artifact, or private account data
-  entered the diff;
-- `git diff --check` is clean;
-- the handoff distinguishes uncommitted, committed, pushed, live-OA-tested, and
-  institutional-session-tested states.
-- when entrypoint or metadata files change, the handoff also distinguishes a
-  repository edit from an installed-copy update and fresh-session discovery.
-
-Do not commit or push unless the user explicitly asks.
+测试仅使用临时目录与模拟响应；真实 OA、机构登录和出版商下载分别取得授权并记录结果。已有 `pdfs/`、下载目录及浏览器会话不属于测试夹具，不检查或清理无关用户产物。

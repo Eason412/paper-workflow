@@ -28,16 +28,15 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("publisher_title_mismatch", text)
         self.assertIn("publisher_title_unverifiable", text)
 
-    def test_claude_project_skill_routes_to_the_canonical_contract(self):
-        path = ROOT / ".claude" / "skills" / "oa-paper-fetch" / "SKILL.md"
-        text = path.read_text(encoding="utf-8")
-
-        self.assertIn("name: oa-paper-fetch", text)
-        self.assertIn("${CLAUDE_SKILL_DIR}/../../..", text)
-        self.assertIn("${CLAUDE_SKILL_DIR}/../../../SKILL.md", text)
-        self.assertIn("canonical workflow and safety contract", text)
-        self.assertIn("$ARGUMENTS", text)
-        self.assertNotIn("playwright install", text)
+    def test_codex_install_payload_contains_entrypoint_metadata_and_backends(self):
+        for relative in (
+            "SKILL.md", "agents/openai.yaml", "oa_fetch.py",
+            "institutional_fetch.py", "config.py", "manifest.py", "store.py",
+        ):
+            self.assertTrue((ROOT / relative).is_file(), relative)
+        metadata = (ROOT / "agents/openai.yaml").read_text(encoding="utf-8")
+        self.assertIn("$oa-paper-fetch", metadata)
+        self.assertIn("allow_implicit_invocation: true", metadata)
 
     def test_bilingual_readmes_share_the_core_user_contract(self):
         english = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -79,43 +78,14 @@ class SkillContractTests(unittest.TestCase):
 
         self.assertEqual(bash_blocks(english), bash_blocks(chinese))
 
-    def test_repository_ai_manual_is_canonical_and_claude_is_a_thin_router(self):
+    def test_maintenance_manual_links_point_to_existing_sources(self):
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        claude = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
-
-        for token in (
-            "canonical maintenance manual",
-            "SKILL.md",
-            "README.md",
-            "README.zh-CN.md",
-            "oa_fetch.py",
-            "institutional_fetch.py",
-            "tests/test_title_resolution.py",
-            "python3 -m unittest discover -s tests -v",
-            "git diff --check",
-            "Never inspect the contents of `~/.oa-paper-fetch/profile`",
-            "Do not commit or push unless the user explicitly asks",
-            "publisher_title_unverifiable",
-            "CLI, input, and result contracts",
-            "--manifest-out",
-            "A dry run",
-            "requirements.txt",
-            "implicit invocation",
-            "ancestor `CLAUDE.md`",
-        ):
-            self.assertIn(token, agents)
-
-        self.assertTrue(claude.startswith("@AGENTS.md\n"))
-        self.assertIn("canonical AI development and maintenance", claude)
-        self.assertIn("read the root `SKILL.md`", claude)
-        self.assertIn("update both `README.md` and `README.zh-CN.md`", claude)
-        self.assertIn("/context", claude)
-        self.assertIn("personal Skill named `oa-paper-fetch`", claude)
-        self.assertIn("python3 oa_fetch.py --help", claude)
-        self.assertIn("python3 oa_fetch.py --version", claude)
-        self.assertLess(len(claude.splitlines()), 50)
-        self.assertNotIn("inst_delay", claude)
-        self.assertNotIn("publisher_title_mismatch", claude)
+        links = re.findall(r"\]\(([^)]+)\)", agents)
+        self.assertIn("SKILL.md", links)
+        self.assertIn("tests/test_title_resolution.py", links)
+        for link in links:
+            if not link.startswith(("https://", "http://")):
+                self.assertTrue((ROOT / link.split("#", 1)[0]).exists(), link)
 
 
 if __name__ == "__main__":

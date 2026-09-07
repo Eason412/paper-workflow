@@ -24,7 +24,7 @@ Use $oa-paper-fetch to download the papers in this reference list to the request
 Try open access first, then use my configured institutional access for unresolved items.
 ```
 
-Claude Code launched from this directory or the collection root uses the project `/oa-paper-fetch` router to the same [SKILL.md](SKILL.md). For personal installation, copy or link this complete directory to `~/.claude/skills/oa-paper-fetch`. Resolve duplicate installations before invocation.
+Codex uses [SKILL.md](SKILL.md) as the canonical workflow and `agents/openai.yaml` for Skill metadata. Keep one installation entry pointing to this directory.
 
 ## Open-access acquisition
 

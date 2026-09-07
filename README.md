@@ -9,7 +9,7 @@
 | `oa-paper-fetch` | OA 优先获取、批量清单处理、浏览器登录会话复用、下载状态与续传管理 | [中文说明](skills/oa-paper-fetch/README.zh-CN.md) · [English](skills/oa-paper-fetch/README.md) |
 | `md-course-report-to-pdf` | 课程报告封面、摘要与目录生成，图表、公式和参考文献排版，双阶段 QA | [使用说明](skills/md-course-report-to-pdf/README.md) |
 
-两个 Skill 可独立安装和调用，源码统一在本仓库维护。
+两个 Skill 均面向 Codex，可独立安装和调用，源码统一在本仓库维护。
 
 ## 文献获取流程
 
