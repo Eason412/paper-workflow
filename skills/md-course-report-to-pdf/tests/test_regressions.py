@@ -189,6 +189,7 @@ class BuildRegressionTests(unittest.TestCase):
                 self.assertEqual(student_value, {"t": "MetaInlines", "c": [{"t": "Str", "c": student_id}]})
                 self.assertIn(r"\newcommand{\studentid}{" + student_id + "}", tex.read_text(encoding="utf-8"))
 
+    @unittest.skipUnless(shutil.which("pandoc"), "pandoc is required for build integration")
     def test_reference_image_outside_project_is_rejected_before_pandoc(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "report.md"
