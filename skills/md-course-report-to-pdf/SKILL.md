@@ -5,7 +5,7 @@ description: Convert Chinese Markdown course reports, class papers, or homework 
 
 # Markdown Course Report To PDF
 
-Follow this workflow to turn one Chinese Markdown course report into a polished PDF using the bundled scripts and template. Read `references/format-qa.md` only when changing layout/reference rules, debugging QA failures, or handling tables/citations beyond the quick path.
+Follow this workflow to turn one Chinese Markdown course report into a polished PDF using the bundled scripts and template. Resolve `SKILL_DIR` to the absolute directory containing this loaded `SKILL.md`, regardless of installation location. Read `references/format-qa.md` only when changing layout/reference rules, debugging QA failures, or handling tables/citations beyond the quick path.
 
 ## Workflow
 
@@ -47,7 +47,8 @@ Follow this workflow to turn one Chinese Markdown course report into a polished 
 5. **Build with the wrapper**
    - Use the bundled wrapper for the normal path. It runs preprocessing, Pandoc, LaTeX postprocessing, compilation, JSON QA, optional PDF copy, and intermediate cleanup from the project root:
      ```bash
-     SKILL_DIR="${CODEX_HOME:-$HOME/.codex}/skills/md-course-report-to-pdf"
+     # Set SKILL_DIR to the actual directory containing this SKILL.md.
+     SKILL_DIR="/absolute/path/to/md-course-report-to-pdf"
      python3 "$SKILL_DIR/scripts/build_course_report.py" input.md \
        --course "课程名称" \
        --student-name "姓名" \

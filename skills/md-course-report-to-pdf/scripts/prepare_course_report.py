@@ -176,10 +176,11 @@ def protected_line_indexes(lines: list[str]) -> set[int]:
             if "</pre>" not in lowered and "</code>" not in lowered:
                 in_html_code = True
             continue
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            marker = stripped[:3]
+        fence = re.match(r"(`{3,}|~{3,})(.*)$", stripped)
+        if fence:
+            marker, suffix = fence.groups()
             protected.add(idx)
-            if in_fence and marker == fence_marker:
+            if in_fence and marker[0] == fence_marker[0] and len(marker) >= len(fence_marker) and not suffix.strip():
                 in_fence = False
                 fence_marker = ""
             elif not in_fence:
@@ -434,13 +435,35 @@ def mask_inline_context(line: str) -> str:
         return " " * (match.end() - match.start())
 
     masked = re.sub(r"!?\[([^\]]+)\]\[[^\]]*\]", mask_reference_link, masked)
-    return masked
+    return mask_math_context(masked)
 
 
-def replace_citations_in_line(line: str, replace_match) -> str:
+def mask_math_context(text: str) -> str:
+    """Hide math without changing offsets or lines used by citation diagnostics."""
+    math = re.compile(
+        r"(?<!\\)(?:"
+        r"\$\$(?:\\.|[^\\])*?\$\$"
+        r"|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]"
+        r"|\$(?![\s$])(?:\\.|(?!\n[ \t]*\n)[^$\\])*?(?<!\s)\$(?!\d)"
+        r")"
+    )
+    return math.sub(lambda match: re.sub(r"[^\n]", " ", match.group(0)), text)
+
+
+def citation_context_lines(lines: list[str], protected: set[int]) -> list[str]:
+    # Mask code/links first so their literal math delimiters cannot span prose.
+    context = "\n".join(
+        " " * len(line) if idx in protected else mask_inline_context(line)
+        for idx, line in enumerate(lines)
+    )
+    return mask_math_context(context).split("\n")
+
+
+def replace_citations_in_line(line: str, replace_match, masked: str | None = None) -> str:
     if LINK_DEFINITION_RE.match(line):
         return line
-    masked = mask_inline_context(line)
+    if masked is None:
+        masked = mask_inline_context(line)
     pieces: list[str] = []
     pos = 0
     for match in CITATION_RE.finditer(masked):
@@ -459,11 +482,12 @@ def collect_body_citations(body_before_refs: str) -> list[int]:
     lines = body_before_refs.splitlines()
     protected = protected_line_indexes(lines)
     table_lines = build_table_line_set(lines)
+    context = citation_context_lines(lines, protected | table_lines)
     markers: list[str] = []
     for idx, line in enumerate(lines):
         if idx in protected or idx in table_lines or LINK_DEFINITION_RE.match(line):
             continue
-        markers.extend(CITATION_RE.findall(mask_inline_context(line)))
+        markers.extend(CITATION_RE.findall(context[idx]))
     return expand_numeric_markers(markers)
 
 
@@ -471,11 +495,12 @@ def collect_invalid_body_citations(body_before_refs: str) -> list[str]:
     lines = body_before_refs.splitlines()
     protected = protected_line_indexes(lines)
     table_lines = build_table_line_set(lines)
+    context = citation_context_lines(lines, protected | table_lines)
     invalid: list[str] = []
     for idx, line in enumerate(lines):
         if idx in protected or idx in table_lines or LINK_DEFINITION_RE.match(line):
             continue
-        for marker in CITATION_RE.finditer(mask_inline_context(line)):
+        for marker in CITATION_RE.finditer(context[idx]):
             _, valid = parse_numeric_marker(marker.group(1))
             rendered = line[marker.start() : marker.end()]
             if not valid and rendered not in invalid:
@@ -488,6 +513,7 @@ def dedupe_repeated_citations(body: str) -> tuple[str, dict[str, object]]:
     lines = body_before_refs.splitlines()
     protected = protected_line_indexes(lines)
     table_lines = build_table_line_set(lines)
+    context = citation_context_lines(lines, protected | table_lines)
     seen: set[int] = set()
     events: list[dict[str, object]] = []
     removed_marker_count = 0
@@ -539,7 +565,7 @@ def dedupe_repeated_citations(body: str) -> tuple[str, dict[str, object]]:
                 return normalized
             return replaced
 
-        replaced_line = replace_citations_in_line(line, line_repl)
+        replaced_line = replace_citations_in_line(line, line_repl, context[idx])
         if replaced_line != line:
             replaced_line = re.sub(r"[ \t]+([，。；：、,.!?;:])", r"\1", replaced_line)
         out_lines.append(replaced_line)
@@ -568,6 +594,10 @@ def yaml_block(key: str, value: str) -> str:
     value = value.rstrip()
     if not value:
         return f"{key}: ''\n"
+    if "\n" not in value:
+        # Pandoc may resolve numeric-looking block scalars as numbers; quoted
+        # strings preserve identifiers such as student IDs, including zeroes.
+        return f"{key}: {json.dumps(value, ensure_ascii=False)}\n"
     lines = value.splitlines()
     indented = "\n".join(f"  {line}" if line else "" for line in lines)
     return f"{key}: |-\n{indented}\n"
@@ -578,9 +608,10 @@ def extract_abstract(lines: list[str]) -> tuple[list[str], dict[str, str], list[
     warnings: list[str] = []
     output: list[str] = []
     i = 0
+    protected = protected_line_indexes(lines)
 
     while i < len(lines):
-        match = HEADING_RE.match(lines[i])
+        match = HEADING_RE.match(lines[i]) if i not in protected else None
         if not match:
             output.append(lines[i])
             i += 1
@@ -595,17 +626,20 @@ def extract_abstract(lines: list[str]) -> tuple[list[str], dict[str, str], list[
             i += 1
             continue
 
-        section_lines: list[str] = []
+        section_lines: list[tuple[int, str]] = []
         i += 1
         while i < len(lines):
-            next_heading = HEADING_RE.match(lines[i])
+            next_heading = HEADING_RE.match(lines[i]) if i not in protected else None
             if next_heading and next_heading.group(1) == "##":
                 break
-            section_lines.append(lines[i])
+            section_lines.append((i, lines[i]))
             i += 1
 
         body_lines: list[str] = []
-        for line in section_lines:
+        for index, line in section_lines:
+            if index in protected:
+                body_lines.append(line)
+                continue
             if line.strip() in {r"\newpage", r"\clearpage"}:
                 continue
             zh_kw = KEYWORDS_ZH_RE.match(line)
@@ -756,41 +790,44 @@ def markdown_image_destination(raw_target: str) -> str:
 
 def extract_markdown_images(text: str) -> list[tuple[str, str]]:
     images: list[tuple[str, str]] = []
-    opener = re.compile(r"!\[([^\]]*)\]\(")
+    def reference_key(label: str) -> str:
+        return " ".join(label.split()).casefold()
+
+    definitions: dict[str, str] = {}
+    for definition in re.finditer(r"(?m)^ {0,3}\[([^\]]+)\]:[ \t]*(?:\n[ \t]*)?(.+)$", text):
+        definitions.setdefault(reference_key(definition.group(1)), markdown_image_destination(definition.group(2)))
+
+    opener = re.compile(r"(?<!\\)!\[")
     pos = 0
     while True:
         match = opener.search(text, pos)
         if not match:
             break
-        idx = match.end()
-        start = idx
-        depth = 1
-        quote = ""
-        escaped = False
-        while idx < len(text):
-            char = text[idx]
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif quote:
-                if char == quote:
-                    quote = ""
-            elif char in {'"', "'"}:
-                quote = char
-            elif char == "(":
-                depth += 1
-            elif char == ")":
-                depth -= 1
-                if depth == 0:
-                    break
-            idx += 1
-        if depth != 0:
+        label_end = find_balanced_delimiter(text, match.end() - 1, "[", "]")
+        if label_end is None:
             pos = match.end()
             continue
-        destination = markdown_image_destination(text[start:idx])
-        images.append((match.group(1), destination))
-        pos = idx + 1
+        caption = text[match.end():label_end]
+        pos = label_end + 1
+        if text[pos:pos + 1] == "(":
+            target_end = find_balanced_delimiter(text, pos, "(", ")")
+            if target_end is not None:
+                images.append((caption, markdown_image_destination(text[pos + 1:target_end])))
+                pos = target_end + 1
+            continue
+
+        # Full, collapsed and shortcut references all use the same asset QA.
+        key = caption
+        spacing = re.match(r"[ \t]*(?:\n[ \t]*)?", text[pos:])
+        target_start = pos + len(spacing.group(0)) if spacing else pos
+        if text[target_start:target_start + 1] == "[":
+            target_end = find_balanced_delimiter(text, target_start, "[", "]")
+            if target_end is not None:
+                key = text[target_start + 1:target_end] or caption
+                pos = target_end + 1
+        destination = definitions.get(reference_key(key))
+        if destination is not None:
+            images.append((caption, destination))
     return images
 
 

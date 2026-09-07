@@ -21,6 +21,7 @@ import html
 import math
 import random
 import re
+import sys
 import time
 from pathlib import Path
 from urllib.parse import quote, urljoin, urlparse
@@ -447,7 +448,7 @@ def _download(
         body = resp.body()
     except Exception as exc:
         return False, f"read_{type(exc).__name__}"
-    if not body.startswith(b"%PDF"):
+    if not store.has_pdf_signature(body):
         sample = body[:65536].lower()
         if any(marker.encode() in sample for marker in LOGIN_OR_CHALLENGE_MARKERS):
             return False, "not_pdf_login_or_challenge"
@@ -621,7 +622,8 @@ def fetch_batch(
     capped = items[:max_items]
     dropped = len(items) - len(capped)
     if dropped > 0:
-        print(f"[institutional] capped at {max_items}; {dropped} item(s) skipped this run")
+        print(f"[institutional] capped at {max_items}; {dropped} item(s) skipped this run",
+              file=sys.stderr)
 
     with sync_playwright() as p:
         ctx = _launch(p, profile_dir, headless)
@@ -646,7 +648,7 @@ def fetch_batch(
                     continue
 
                 label = item.get("title") or doi or landing
-                print(f"[institutional {i}/{len(capped)}] {label}")
+                print(f"[institutional {i}/{len(capped)}] {label}", file=sys.stderr)
                 page = ctx.new_page()
                 try:
                     result, counts_as_block = _fetch_page_pdf(
@@ -670,7 +672,8 @@ def fetch_batch(
 
                 if consecutive_blocks >= 3:
                     print("[institutional] aborting: 3 blocks/login walls since the "
-                          "last successful PDF — check that you are still signed in.")
+                          "last successful PDF — check that you are still signed in.",
+                          file=sys.stderr)
                     for remaining in capped[i:]:
                         results.append({
                             "meta": _meta(remaining),

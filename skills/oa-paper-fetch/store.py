@@ -82,13 +82,18 @@ def atomic_write_csv(path: Path, fieldnames: list[str], rows: Iterable[dict]) ->
     atomic_write_text(Path(path), buffer.getvalue())
 
 
+def has_pdf_signature(data: bytes) -> bool:
+    """Apply the same lightweight PDF gate to downloads and saved files."""
+    return len(data) > 5 and data.startswith(b"%PDF")
+
+
 def verify_pdf(path: Path) -> bool:
     path = Path(path)
     try:
-        if not path.is_file() or path.stat().st_size <= 5:
+        if not path.is_file():
             return False
         with path.open("rb") as handle:
-            return handle.read(4) == b"%PDF"
+            return has_pdf_signature(handle.read(6))
     except OSError:
         return False
 
@@ -197,14 +202,27 @@ def load_state(out_dir: Path, warn: Callable[[str], None] | None = None) -> dict
         return new_state()
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError) as exc:
         if warn:
-            warn(f"Ignoring unreadable state file {path}: {type(exc).__name__}")
-        return new_state()
+            warn(f"Unreadable state file {path}: {type(exc).__name__}")
+        raise OSError(f"Unreadable state file {path}: {type(exc).__name__}") from exc
     if not isinstance(payload, dict) or not isinstance(payload.get("records"), dict):
-        if warn:
-            warn(f"Ignoring invalid state file {path}")
-        return new_state()
+        raise ValueError(f"Invalid state structure in {path}")
+    version = payload.get("version", STATE_VERSION)
+    if type(version) is not int or version != STATE_VERSION:
+        raise ValueError(f"Unsupported state version in {path}")
+    for record in payload["records"].values():
+        if not isinstance(record, dict):
+            raise ValueError(f"Invalid state record in {path}")
+        for key, member_type in (("input_ids", str), ("runs", dict)):
+            value = record.get(key, [])
+            if not isinstance(value, list) or any(
+                not isinstance(member, member_type) for member in value
+            ):
+                raise ValueError(f"Invalid state record {key} in {path}")
+            record.setdefault(key, [])
+        if "meta" in record and not isinstance(record["meta"], dict):
+            raise ValueError(f"Invalid state record meta in {path}")
     payload.setdefault("version", STATE_VERSION)
     payload.setdefault("updated_at", utc_now())
     payload.setdefault("manifest_sha256", "")

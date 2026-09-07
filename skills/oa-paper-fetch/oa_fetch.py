@@ -620,7 +620,7 @@ def download_pdf(url: str, dest: Path, timeout: int, overwrite: bool) -> tuple[b
         return False, f"network_{type(exc).__name__}"
     if len(data) > MAX_PDF_BYTES:
         return False, "too_large"
-    if not data.startswith(b"%PDF"):
+    if not store.has_pdf_signature(data):
         return False, "not_pdf"
     store.atomic_write_bytes(dest, data)
     return True, "downloaded"
@@ -1217,7 +1217,11 @@ def main() -> int:
         print(f"Could not prepare output directory or manifest: {exc}", file=sys.stderr)
         return 4
 
-    state = store.load_state(out_dir, warn=lambda message: print(message, file=sys.stderr))
+    try:
+        state = store.load_state(out_dir)
+    except (OSError, ValueError) as exc:
+        print(f"Could not load run state: {exc}", file=sys.stderr)
+        return 4
     state["manifest_sha256"] = manifest_tools.manifest_sha256(records)
     results: list[dict | None] = [None] * len(records)
     transport_error = False
@@ -1342,6 +1346,10 @@ def main() -> int:
             index = record["input_index"]
             result = results[index]
             if result is None or result.get("success"):
+                continue
+            if result.get("error") in {
+                "title_resolution_ambiguous", "title_resolution_unresolved",
+            }:
                 continue
             meta = result.get("meta") or {}
             doi = meta.get("doi") or record.get("doi")

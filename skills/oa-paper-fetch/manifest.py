@@ -70,6 +70,7 @@ def normalize_url(value) -> str | None:
 def normalize_items(items: list[dict]) -> list[dict]:
     records = []
     used_ids: dict[str, int] = {}
+    occupied_ids: set[str] = set()
     seen_doi: dict[str, str] = {}
     seen_url: dict[str, str] = {}
     seen_title: dict[str, str] = {}
@@ -77,8 +78,12 @@ def normalize_items(items: list[dict]) -> list[dict]:
     for index, raw in enumerate(items, 1):
         base_id = _text(raw.get("id")) or f"row{index}"
         count = used_ids.get(base_id, 0) + 1
-        used_ids[base_id] = count
         input_id = base_id if count == 1 else f"{base_id}-{count}"
+        while input_id in occupied_ids:
+            count += 1
+            input_id = f"{base_id}-{count}"
+        used_ids[base_id] = count
+        occupied_ids.add(input_id)
         title = _text(raw.get("title"))
         raw_doi = _text(raw.get("doi"))
         raw_url = _text(raw.get("url"))

@@ -17,8 +17,10 @@ do not make them assemble CLI commands unless they request the commands.
   IEEE Xplore, Wiley Online Library, and Elsevier ScienceDirect. Never expand
   the publisher allowlist silently.
 - Never ask for, read, type, or store a school password, SSO code, MFA code,
-  recovery code, cookie, authorization header, token, or Playwright storage
-  state. Let the user complete authentication in the visible browser.
+  recovery code, authorization header, or token. Never read, extract, import,
+  or export cookies or Playwright storage state. Let the user complete
+  authentication in the visible browser; the browser itself may retain its
+  session cookies in the isolated local profile.
 - Never use Sci-Hub, shared credentials, CAPTCHA automation, paywall
   circumvention, proxy rotation, or anti-bot evasion.
 - Keep all downloads serial. Keep institutional delay at least 4 seconds,
@@ -64,6 +66,8 @@ read from an attachment:
 
 2. Give every row a stable unique `id`. Copy only known values. Require at
    least one of `title`, `doi`, or `url`; leave the other cells empty.
+   The backend assigns missing IDs and suffixes collisions, including conflicts
+   with explicitly supplied suffixes, so every normalized row stays distinct.
 3. Do not infer a DOI from general knowledge and do not repair a title by
    guessing. Let the backend normalize and resolve it.
 4. Run the temporary CSV with `--batch`. The backend normalizes DOI/URL values,
@@ -110,6 +114,8 @@ DOI.
   publisher URL, or corrected full title. Do not download any candidate.
 - For `title_resolution_unresolved`, report failure and ask for a DOI,
   publisher URL, or the exact original title.
+- Once title resolution blocks an item, an accompanying URL must not cause an
+  institutional retry to bypass that decision. Preserve the identity evidence.
 - An explicit DOI or supported URL remains the identity anchor. Metadata
   searches must not silently replace it.
 
@@ -159,7 +165,9 @@ The command opens IEEE Xplore, ScienceDirect, and Wiley Online Library. Do not
 click or type in authentication fields. Wait for the user to finish in the
 browser and press Enter in the command session. Reuse the persistent profile on
 later runs while the publishers still accept it; do not treat its age as proof
-that it is valid.
+that it is valid. The browser manages the saved login state locally, including
+session cookies; this does not authorize the Skill to inspect the profile or
+read/export cookies.
 
 Use a visible browser by default. Use `--headless` only to reuse a profile that
 has already worked; never use it for first login or login repair.
@@ -237,6 +245,12 @@ resume. Let the backend verify `%PDF`, reuse the canonical identity and state,
 skip verified successes as `exists`, and retry unresolved items. Do not use
 `--overwrite` unless the user explicitly requests a replacement.
 
+Downloads and resume use the same lightweight check: a `%PDF` prefix and more
+than five bytes. This detects empty/truncated signatures, not full PDF validity.
+If existing state is unreadable, malformed, or has an unsupported version, stop
+with exit `4` and retain the state file unchanged. Do not delete or replace it
+automatically; valid older records without newer optional fields remain usable.
+
 An old state record without the current naming version may perform one
 metadata-only refresh. The backend must verify the old PDF, create the new name
 without overwriting, save state, and only then remove the old name. It must not
@@ -265,6 +279,8 @@ When `oa_fetch_pending.csv` exists:
 Inspect the stdout JSON and `oa_fetch_results.json`. Report counts and paths for
 `downloaded`, `exists`, `duplicate`, `failed`, and `pending`. Treat `candidate`
 as dry-run evidence only, never as a downloaded PDF.
+Paper-run progress, including institutional cap and login-block messages, goes
+to stderr so stdout remains a single JSON result.
 
 When present, also report `renamed_from`, `filename_error`, and
 `filename_metadata_error`. Verify that a renamed file exists at the reported

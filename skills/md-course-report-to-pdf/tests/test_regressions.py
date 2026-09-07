@@ -20,6 +20,68 @@ from scripts import prepare_course_report as prepare  # noqa: E402
 
 
 class PrepareRegressionTests(unittest.TestCase):
+    def test_abstract_headings_inside_fences_do_not_remove_body(self) -> None:
+        for fence in ("```markdown", "~~~markdown", "````markdown"):
+            closing = fence.removesuffix("markdown")
+            lines = ["# 报告", "## 方法", fence, "## 摘要", "示例代码", "```", closing, "保留正文"]
+            with self.subTest(fence=fence):
+                output, metadata, _ = prepare.extract_abstract(lines)
+                self.assertEqual(output, lines)
+                self.assertEqual(metadata, {})
+
+    def test_real_abstract_preserves_code_headings_and_keyword_examples(self) -> None:
+        lines = ["# 报告", "## 摘要", "真实摘要", "```markdown", "## 方法", "关键词：示例", "```", "关键词：报告", "## 正文", "正文内容"]
+
+        output, metadata, _ = prepare.extract_abstract(lines)
+
+        self.assertEqual(output, ["# 报告", "## 正文", "正文内容"])
+        self.assertIn("## 方法\n关键词：示例", metadata["abstract_zh"])
+        self.assertEqual(metadata["keywords_zh"], "报告")
+
+    def test_math_never_controls_citation_deduplication_or_qa(self) -> None:
+        for formula in ("$x[1]$", "$$x[1]$$", "$$\nx[1]\n$$", r"\(x[1]\)", "\\[\nx[1]\n\\]"):
+            for formula_first in (True, False):
+                with self.subTest(formula=formula, formula_first=formula_first):
+                    prose = "首次正文引用[1]。"
+                    parts = [formula, prose] if formula_first else [prose, formula]
+                    body = "\n\n".join(parts) + "\n\n再次引用[1]。"
+                    deduped, report = prepare.dedupe_repeated_citations(body)
+                    self.assertIn(formula, deduped)
+                    self.assertIn(prose, deduped)
+                    self.assertEqual(report["removed_marker_count"], 1)
+                    self.assertEqual(prepare.collect_body_citations(formula), [])
+                    self.assertEqual(prepare.collect_invalid_body_citations(formula.replace("[1]", "[1-3-5]")), [])
+
+    def test_escaped_currency_does_not_hide_citations(self) -> None:
+        body = r"价格 \$5 引用[1]，另一个 \$6 引用[2]。"
+        self.assertEqual(prepare.collect_body_citations(body), [1, 2])
+
+    def test_reference_images_share_inline_image_path_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "figure.png").write_bytes(b"png fixture")
+            for image, definition in (
+                ("![方法图][fig]", '[fig]: figure.png "标题"'),
+                ("![方法图][]", "[方法图]: <figure.png>"),
+                ("![方法图]", "[方法图]: figure.png"),
+                ("![方法图][FIG name]", "[fig   name]: figure.png"),
+            ):
+                with self.subTest(image=image):
+                    qa = prepare.scan_body(image + "\n\n" + definition, root)
+                    self.assertEqual(qa["image_count"], 1)
+                    self.assertEqual(qa["missing_images"], [])
+                    self.assertEqual(qa["unsafe_image_paths"], [])
+                    self.assertEqual(qa["images"][0]["path"], "figure.png")
+
+            qa = prepare.scan_body("![图 1 方法图][fig]\n\n[fig]: ../outside.png", root)
+            self.assertEqual(qa["unsafe_image_paths"], ["../outside.png"])
+            self.assertEqual(qa["missing_images"], ["../outside.png"])
+            self.assertEqual(qa["captions_with_manual_numbers"], ["图 1 方法图"])
+
+    def test_fenced_reference_image_definition_does_not_create_an_image(self) -> None:
+        body = "![方法图][fig]\n\n```markdown\n[fig]: ../outside.png\n```"
+        self.assertEqual(prepare.scan_body(body, ROOT)["image_count"], 0)
+
     def test_code_block_h1_is_not_used_as_title_or_deleted(self) -> None:
         lines = ["```python", "# Fake code", "```", "## 正文", "内容。"]
 
@@ -103,6 +165,41 @@ class PrepareRegressionTests(unittest.TestCase):
 
 
 class BuildRegressionTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("pandoc"), "pandoc is required for metadata integration")
+    def test_student_id_keeps_leading_zeroes_and_all_digits_through_pandoc(self) -> None:
+        for student_id in ("0000000000", "000123456789012345678901234567890123456789"):
+            with self.subTest(student_id=student_id), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                source = root / "report.md"
+                source.write_text("# 报告\n\n## 正文\n\n内容。\n", encoding="utf-8")
+                tex = root / "report.tex"
+                completed = subprocess.run(
+                    [sys.executable, str(SCRIPTS / "build_course_report.py"), str(source),
+                     "--course", "示例课程", "--student-name", "示例学生",
+                     "--student-id", student_id, "--tex", str(tex), "--skip-compile"],
+                    text=True, capture_output=True, timeout=30, check=False,
+                )
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+                metadata = root / "latex" / "metadata.yaml"
+                parsed = subprocess.run(
+                    [shutil.which("pandoc") or "pandoc", "--from=markdown", "--to=json", "--metadata-file", str(metadata)],
+                    input="", text=True, capture_output=True, timeout=30, check=True,
+                )
+                student_value = json.loads(parsed.stdout)["meta"]["studentid"]
+                self.assertEqual(student_value, {"t": "MetaInlines", "c": [{"t": "Str", "c": student_id}]})
+                self.assertIn(r"\newcommand{\studentid}{" + student_id + "}", tex.read_text(encoding="utf-8"))
+
+    def test_reference_image_outside_project_is_rejected_before_pandoc(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "report.md"
+            source.write_text("# 报告\n\n## 正文\n\n![方法图][fig]\n\n[fig]: ../outside.png\n", encoding="utf-8")
+            completed = subprocess.run(
+                [sys.executable, str(SCRIPTS / "build_course_report.py"), str(source), "--no-cover", "--skip-compile"],
+                text=True, capture_output=True, timeout=30, check=False,
+            )
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("outside.png", completed.stderr)
+
     def test_command_output_is_bounded_and_preserves_head_and_tail(self) -> None:
         output = build.command_output(
             "stdout-head\n" + "x" * build.MAX_COMMAND_OUTPUT_CHARS,
@@ -278,6 +375,18 @@ class BuildRegressionTests(unittest.TestCase):
             )
 
 class PostprocessRegressionTests(unittest.TestCase):
+    def test_longtable_rich_caption_keeps_complete_nested_braces(self) -> None:
+        caption = r"\textbf{方案 \emph{一}}与 \(x_{1}\) 对比"
+        source = "\\begin{longtable}{c}\n\\caption{" + caption + "}\\tabularnewline\n\\endfirsthead\n\\endhead\n数据 \\\\\n\\end{longtable}"
+
+        output = post.add_longtable_continuations(source)
+        qa = post.qa_report(output, output, "")
+
+        self.assertIn(r"\caption[]{" + caption + "（续表）}", output)
+        self.assertEqual(qa["longtables_missing_endfoot"], 0)
+        self.assertEqual(qa["longtables_missing_endlastfoot"], 0)
+        self.assertEqual(post.add_longtable_continuations(output), output)
+
     def test_reference_split_ignores_unpaired_body_sentinel(self) -> None:
         tex = (
             "before\n"
@@ -354,6 +463,35 @@ class LuaFilterRegressionTests(unittest.TestCase):
             timeout=30,
         )
         return completed.stdout
+
+    def test_ordered_lists_keep_single_multiple_and_nested_items(self) -> None:
+        for markdown, labels in (
+            ("1. Single [1]\n", ["Single"]),
+            ("1. First [1]\n2. Second [2]\n3. Third [3]\n", ["First", "Second", "Third"]),
+            ("1. Outer [1]\n\n    1. Inner [2]\n    2. Nested [3]\n", ["Outer", "Inner", "Nested"]),
+        ):
+            with self.subTest(markdown=markdown):
+                output = self.run_pandoc(markdown)
+                self.assertEqual(output.count(r"\item"), len(labels))
+                for number, label in enumerate(labels, 1):
+                    self.assertIn(label, output)
+                    self.assertIn(r"\textsupcite{" + str(number) + "}", output)
+
+    def test_pandoc_rich_table_caption_gets_continuation(self) -> None:
+        tex = self.run_pandoc("| A | B |\n|---|---|\n| 1 | 2 |\n: **方案**对比\n")
+        output = post.add_longtable_continuations(tex)
+        self.assertIn(r"\caption[]{\textbf{方案}对比（续表）}", output)
+        self.assertIn(r"\endfoot", output)
+        self.assertIn(r"\endlastfoot", output)
+
+    def test_prepared_math_and_first_prose_citation_survive_pandoc(self) -> None:
+        prepared, _ = prepare.dedupe_repeated_citations(
+            "$x[1]$\n\n首次引用[1]。\n\n$$\ny[1]\n$$\n\n再次引用[1]。"
+        )
+        output = self.run_pandoc(prepared)
+        self.assertIn("x[1]", output)
+        self.assertIn("y[1]", output)
+        self.assertEqual(output.count(r"\textsupcite{1}"), 1)
 
     def test_citation_and_display_math_transform_only_semantic_nodes(self) -> None:
         output = self.run_pandoc(

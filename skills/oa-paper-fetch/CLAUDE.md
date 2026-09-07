@@ -2,6 +2,8 @@
 
 # Claude Code repository instructions
 
+Within Paper Workflow, repository root below means this `oa-paper-fetch` Skill directory.
+
 `AGENTS.md` is imported above as the canonical AI development and maintenance
 manual.
 

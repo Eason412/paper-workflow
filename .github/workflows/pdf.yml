@@ -1,4 +1,4 @@
-name: Smoke Test
+name: Course Report PDF
 
 on:
   push:
@@ -8,6 +8,9 @@ jobs:
   regression:
     name: Regression (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: skills/md-course-report-to-pdf
     permissions:
       contents: read
     strategy:
@@ -27,11 +30,14 @@ jobs:
         run: python -m compileall -q scripts tests
 
       - name: Run regression tests
-        run: python -m unittest -v tests.test_regressions
+        run: python -m unittest discover -s tests -v
 
   smoke:
     name: Full PDF smoke (Pandoc ${{ matrix.pandoc-version }})
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: skills/md-course-report-to-pdf
     permissions:
       contents: read
     strategy:
@@ -62,7 +68,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/Tectonic
-          key: ${{ runner.os }}-tectonic-${{ hashFiles('assets/templates/**/*.tex', 'examples/**/*.md') }}
+          key: ${{ runner.os }}-tectonic-${{ hashFiles('skills/md-course-report-to-pdf/assets/templates/**/*.tex', 'skills/md-course-report-to-pdf/examples/**/*.md') }}
           restore-keys: |
             ${{ runner.os }}-tectonic-
 
@@ -73,7 +79,7 @@ jobs:
         run: tectonic --version
 
       - name: Run Pandoc integration regressions
-        run: python3 -m unittest -v tests.test_regressions
+        run: python3 -m unittest discover -s tests -v
 
       - name: Run smoke tests
         env:

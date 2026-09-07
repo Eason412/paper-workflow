@@ -2,8 +2,9 @@
 
 ## Scope
 
-This file applies only to the `paper-fetch` repository. Do not mix source,
-artifacts, or rules from its parent workspace or sibling repositories.
+This file applies only to the `oa-paper-fetch` Skill directory inside Paper
+Workflow. In the instructions below, repository root means this Skill's root.
+Do not mix source, artifacts, or runtime rules from sibling Skills.
 
 This is the canonical maintenance manual for AI agents changing the repository.
 It is not the paper-download workflow itself. For a user request to find or

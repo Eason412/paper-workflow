@@ -81,13 +81,9 @@ local function transform_block(block)
 
   if block.tag == "BlockQuote" or block.tag == "Div" then
     block.content = transform_blocks(block.content)
-  elseif block.tag == "BulletList" then
+  elseif block.tag == "BulletList" or block.tag == "OrderedList" then
     for index, item in ipairs(block.content) do
       block.content[index] = transform_blocks(item)
-    end
-  elseif block.tag == "OrderedList" then
-    for index, item in ipairs(block.content[2]) do
-      block.content[2][index] = transform_blocks(item)
     end
   elseif block.tag == "DefinitionList" then
     for _, item in ipairs(block.content) do

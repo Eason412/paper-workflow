@@ -109,10 +109,9 @@ class OaFirstTests(unittest.TestCase):
             ]
             failure = {
                 "success": False,
-                "status": "pending",
-                "pending_reason": "title_resolution_ambiguous",
+                "status": "failed",
                 "meta": {"doi": "10.1109/example"},
-                "error": "title_resolution_ambiguous",
+                "error": "no_open_access_pdf_downloaded",
             }
             stdout = StringIO()
             with (

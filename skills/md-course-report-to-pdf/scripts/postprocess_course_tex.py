@@ -136,10 +136,13 @@ def center_longtable_cells(tex: str) -> str:
 def add_longtable_continuations(tex: str) -> str:
     def repl(match: re.Match[str]) -> str:
         block = match.group(0)
-        caption_match = re.search(r"\\caption\{([^{}]+)\}\\tabularnewline", block)
+        caption_match = re.search(r"\\caption\{", block)
         if not caption_match:
             return block
-        caption = caption_match.group(1)
+        parsed_caption = _read_braced(block, caption_match.end() - 1)
+        if not parsed_caption or not block[parsed_caption[1]:].lstrip().startswith(r"\tabularnewline"):
+            return block
+        caption = parsed_caption[0]
         if r"\endfoot" not in block:
             block = block.replace(
                 r"\endhead",

@@ -1,0 +1,32 @@
+name: Paper Fetch
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: skills/oa-paper-fetch
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Offline regression
+        run: python -m unittest discover -s tests -v
+      - name: Python syntax
+        run: python -m py_compile oa_fetch.py institutional_fetch.py config.py manifest.py store.py
+      - name: CLI help
+        run: python oa_fetch.py --help
+      - name: CLI version
+        run: python oa_fetch.py --version
