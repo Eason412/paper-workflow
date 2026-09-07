@@ -1,0 +1,308 @@
+\documentclass[UTF8,a4paper,12pt]{ctexart}
+
+\usepackage{geometry}
+\geometry{
+  a4paper,
+  top=30mm,
+  bottom=24mm,
+  left=25mm,
+  right=25mm,
+  headheight=20mm,
+  footskip=20mm
+}
+
+\usepackage{amsmath,amssymb,graphicx,fontspec,float,caption,booktabs,longtable,array,calc}
+\usepackage{enumitem,xcolor,hyperref,fancyhdr,bookmark,xurl,etoolbox}
+
+\IfFontExistsTF{Times New Roman}{\setmainfont{Times New Roman}}{%
+  \IfFontExistsTF{Liberation Serif}{\setmainfont{Liberation Serif}}{\setmainfont{DejaVu Serif}}%
+}
+\IfFontExistsTF{Songti SC}{\setCJKmainfont{Songti SC}}{%
+  \IfFontExistsTF{Noto Serif CJK SC}{\setCJKmainfont{Noto Serif CJK SC}}{\setCJKmainfont{FandolSong-Regular}}%
+}
+\IfFontExistsTF{Songti SC}{\setCJKsansfont{Songti SC}}{%
+  \IfFontExistsTF{Noto Sans CJK SC}{\setCJKsansfont{Noto Sans CJK SC}}{\setCJKsansfont{FandolSong-Regular}}%
+}
+\IfFontExistsTF{Songti SC}{\setCJKmonofont{Songti SC}}{%
+  \IfFontExistsTF{Noto Sans CJK SC}{\setCJKmonofont{Noto Sans CJK SC}}{\setCJKmonofont{FandolSong-Regular}}%
+}
+
+\newcommand{\reporttitle}{$title$}
+\newcommand{\reportsubtitle}{$subtitle$}
+\newcommand{\coursename}{$course$}
+\newcommand{\studentname}{$studentname$}
+\newcommand{\studentid}{$studentid$}
+\newcommand{\logopath}{$logo$}
+
+\hypersetup{unicode=true,colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue,breaklinks=true,hypertexnames=false,plainpages=false,pdftitle={\reporttitle}}
+
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0pt}
+\setlist{nosep}
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{4}
+\setlength{\emergencystretch}{3em}
+\Urlmuskip=0mu plus 1mu
+\sloppy
+\graphicspath{{./}{image/}{figures/}{assets/}}
+\newcommand{\reportbodyfont}{\zihao{-4}\songti\selectfont\setlength{\baselineskip}{20bp}}
+\newlength{\coverlabelwidth}
+\newlength{\covervaluewidth}
+\setlength{\coverlabelwidth}{4\ccwd}
+\setlength{\covervaluewidth}{0.46\textwidth}
+\newcommand{\coverunderline}[1]{\underline{\makebox[\covervaluewidth][c]{#1}}}
+\newcommand{\coverfield}[2]{%
+  \makebox[\textwidth][c]{%
+    \makebox[\coverlabelwidth][r]{#1}\makebox[1\ccwd][c]{：}%
+    \coverunderline{#2}%
+  }\par\vspace{0.45em}%
+}
+\newcommand{\covercoursefield}[2]{\coverfield{#1}{#2}}
+\newcommand{\coverfields}{%
+  {\zihao{4}\songti
+  \covercoursefield{课程名称}{\coursename}
+  \coverfield{姓名}{\studentname}
+  \coverfield{学号}{\studentid}
+  \par}
+}
+
+% 学位论文封面字段（官方附件 2.1）。标签宽度比课程封面更宽以容纳"论文提交时间"。
+\newcommand{\classification}{$classification$}
+\newcommand{\secrecy}{$secrecy$}
+\newcommand{\udc}{$udc$}
+\newcommand{\degreetype}{$degreetype$}
+\newcommand{\advisorname}{$advisor$}
+\newcommand{\advisortitle}{$advisortitle$}
+\newcommand{\degreecategory}{$degreecategory$}
+\newcommand{\disciplinename}{$discipline$}
+\newcommand{\disciplinelabel}{$disciplinelabel$}
+\newcommand{\researchfield}{$researchfield$}
+\newcommand{\submitdate}{$submitdate$}
+\newlength{\coverthesislabelwidth}
+\setlength{\coverthesislabelwidth}{6\ccwd}
+\newlength{\covershortvaluewidth}
+\setlength{\covershortvaluewidth}{6\ccwd}
+\newcommand{\coverunderlineshort}[1]{\underline{\makebox[\covershortvaluewidth][c]{#1}}}
+\newcommand{\coverthesisfield}[2]{%
+  \makebox[\textwidth][c]{%
+    \makebox[\coverthesislabelwidth][c]{#1}\makebox[1\ccwd][c]{：}%
+    \coverunderline{#2}%
+  }\par\vspace{0.5em}%
+}
+\newcommand{\coverthesisfields}{%
+  {\zihao{4}\songti
+  \setlength{\coverthesislabelwidth}{6\ccwd}% 在 4 号字号下重算，否则按导言区 12pt 冻结会让 6 字标签溢出
+  \coverthesisfield{指导教师}{\advisorname\quad\advisortitle}
+  \coverthesisfield{学位类别}{\degreecategory}
+  \coverthesisfield{\disciplinelabel}{\disciplinename}
+  \coverthesisfield{研究方向}{\researchfield}
+  \coverthesisfield{论文提交时间}{\submitdate}
+  \par}
+}
+
+\ctexset{
+  section = {
+    format = \zihao{-3}\songti\bfseries,
+    beforeskip = 18bp,
+    afterskip = 18bp,
+    indent = 0pt,
+    aftername = \quad
+  },
+  subsection = {
+    format = \zihao{4}\songti\bfseries,
+    beforeskip = 12bp,
+    afterskip = 12bp,
+    indent = 0pt,
+    aftername = \quad
+  },
+  subsubsection = {
+    format = \zihao{-4}\songti\bfseries,
+    beforeskip = 6bp,
+    afterskip = 6bp,
+    indent = 0pt,
+    aftername = \quad
+  },
+  paragraph = {
+    format = \zihao{-4}\songti,
+    beforeskip = 0bp,
+    afterskip = 0bp,
+    indent = 0pt
+  }
+}
+\pretocmd{\section}{\ifnum\value{section}>0\clearpage\fi}{}{}
+
+\DeclareCaptionFont{wuhao}{\zihao{5}\songti}
+\captionsetup[figure]{font=wuhao,labelfont=bf,labelsep=space,name=图,position=bottom}
+\captionsetup[table]{font=wuhao,labelfont=bf,labelsep=space,name=表,position=top}
+\captionsetup[longtable]{font=wuhao,labelfont=bf,labelsep=space,name=表,position=top,skip=0pt}
+\setlength{\LTcapwidth}{\textwidth}
+\numberwithin{figure}{section}
+\numberwithin{table}{section}
+\numberwithin{equation}{section}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \fancyfoot[C]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0pt}
+}
+\fancypagestyle{tocplain}{%
+  \fancyhf{}
+  \fancyfoot[C]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0pt}
+}
+
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\providecommand{\pandocbounded}[1]{#1}
+\providecommand{\textsupcite}[1]{\textsuperscript{\textnormal{[#1]}}}
+\renewcommand{\refname}{参考文献}
+\patchcmd{\thebibliography}{\section*{\refname}}{\section*{\centering\zihao{3}\songti\bfseries\refname}}{}{\PackageWarning{md-course-report}{Failed to patch bibliography heading}}
+\AtBeginEnvironment{thebibliography}{\reportbodyfont}
+\AtBeginEnvironment{table}{\zihao{5}\songti}
+\AtBeginEnvironment{longtable}{\zihao{5}\songti}
+\makeatletter
+\define@key{Gin}{alt}{}
+\def\fps@figure{!htbp}
+\def\fps@table{H}
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{5}
+\renewcommand{\topfraction}{0.85}
+\renewcommand{\bottomfraction}{0.7}
+\renewcommand{\textfraction}{0.15}
+\renewcommand{\floatpagefraction}{0.66}
+\renewcommand{\tagform@}[1]{\maketag@@@{（#1）}}
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>0.78\textheight 0.78\textheight\else\Gin@nat@height\fi}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\def\@pnumwidth{2.5em}
+\def\@tocrmarg{3.5em}
+\newcommand{\reporttocnumwidth}{4.8em}
+\newcommand{\reporttocfont}{\zihao{-4}\songti\normalfont}
+% 官方规范: 一级标题、致谢、参考文献、附录等用 4 号加粗宋体; 其余条目用小 4 号宋体。
+% 致谢/附录是 \section, 参考文献经 \addcontentsline{toc}{section}{参考文献} 进目录,
+% 因此统一由 \l@section 的字体决定一级条目样式。
+\newcommand{\reporttocsectionfont}{\zihao{4}\songti\bfseries}
+\renewcommand*\l@section[2]{%
+  \ifnum \c@tocdepth >\z@
+    \addpenalty\@secpenalty
+    {\reporttocsectionfont\@dottedtocline{1}{0em}{\reporttocnumwidth}{#1}{#2}}%
+  \fi}
+\renewcommand*\l@subsection{\reporttocfont\@dottedtocline{2}{0em}{\reporttocnumwidth}}
+\renewcommand*\l@subsubsection{\reporttocfont\@dottedtocline{3}{0em}{\reporttocnumwidth}}
+\renewcommand*\l@paragraph{\reporttocfont\@dottedtocline{4}{0em}{\reporttocnumwidth}}
+\renewcommand{\tableofcontents}{%
+  \begin{center}{\zihao{3}\songti\bfseries 目录}\end{center}
+  \vspace{1em}
+  {\zihao{-4}\songti\setlength{\baselineskip}{20bp}\@starttoc{toc}}}
+\makeatother
+
+\begin{document}
+
+$if(cover_disabled)$
+$else$
+$if(thesis_cover)$
+\begin{titlepage}
+  \thispagestyle{empty}
+  {\zihao{4}\songti
+   \setlength{\coverthesislabelwidth}{6\ccwd}\setlength{\covershortvaluewidth}{6\ccwd}%
+   \noindent\makebox[\coverthesislabelwidth][c]{分类号}\makebox[1\ccwd][c]{}\coverunderlineshort{\classification}%
+   \hfill
+   \makebox[2\ccwd][c]{密级}\makebox[1\ccwd][c]{}\coverunderlineshort{\secrecy}\par
+   \vspace{0.5em}
+   \noindent\makebox[\coverthesislabelwidth][c]{UDC}\makebox[1\ccwd][c]{}\coverunderlineshort{\udc}\par}
+  \vspace{1.1cm}
+  \centering
+$if(logo)$
+  \includegraphics[width=4.2cm]{\logopath}\par
+  \vspace{1.0cm}
+$else$
+  \vspace*{1.6cm}
+$endif$
+  {\zihao{2}\songti\bfseries \degreetype \par}
+  \vspace{1.3cm}
+  {\zihao{3}\songti\bfseries \reporttitle \par}
+$if(subtitle)$
+  \vspace{0.4cm}
+  {\zihao{4}\songti \reportsubtitle \par}
+$endif$
+  \vspace{0.3cm}
+  {\zihao{-4}\songti （题名和副题名）\par}
+  \vspace{1.1cm}
+  {\zihao{3}\songti\bfseries \studentname \par}
+  \vspace{0.2cm}
+  {\zihao{-4}\songti （作者姓名）\par}
+  \vspace{1.4cm}
+  \coverthesisfields
+  \vfill
+\end{titlepage}
+
+\clearpage
+$else$
+\begin{titlepage}
+  \thispagestyle{empty}
+  \centering
+  \vspace*{4.7cm}
+$if(logo)$
+  \includegraphics[width=4.2cm]{\logopath}\par
+  \vspace{1.3cm}
+$else$
+  \vspace*{2.3cm}
+$endif$
+  {\zihao{3}\songti\bfseries \reporttitle \par}
+$if(subtitle)$
+  \vspace{0.5cm}
+  {\zihao{4}\songti \reportsubtitle \par}
+$endif$
+  \vspace{2.1cm}
+  \coverfields
+  \vfill
+\end{titlepage}
+
+\clearpage
+$endif$
+$endif$
+\pagenumbering{roman}
+\setcounter{page}{1}
+\pagestyle{tocplain}
+
+$if(abstract_zh)$
+\begin{center}{\zihao{3}\songti\bfseries 摘要}\end{center}
+\vspace{1em}
+{\reportbodyfont $abstract_zh$ \par}
+$if(keywords_zh)$
+\vspace{1em}
+\noindent{\zihao{4}\songti\bfseries 关键词：}{\zihao{-4}\songti $keywords_zh$}
+$endif$
+\clearpage
+$endif$
+
+$if(abstract_en)$
+\begin{center}{\bfseries\zihao{3} Abstract}\end{center}
+\vspace{1em}
+{\zihao{-4}\rmfamily\setlength{\baselineskip}{20bp} $abstract_en$ \par}
+$if(keywords_en)$
+\vspace{1em}
+\noindent{\zihao{4}\bfseries Keywords:} {\zihao{-4}\rmfamily $keywords_en$}
+$endif$
+\clearpage
+$endif$
+
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\setcounter{section}{0}
+\pagestyle{fancy}
+
+{\reportbodyfont
+$body$
+\par}
+
+\end{document}

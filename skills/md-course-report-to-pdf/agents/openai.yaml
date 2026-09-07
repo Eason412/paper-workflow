@@ -1,0 +1,4 @@
+interface:
+  display_name: "Markdown Course Report to PDF"
+  short_description: "Convert Chinese course reports to polished PDFs"
+  default_prompt: "Use $md-course-report-to-pdf to convert a Chinese Markdown course report to PDF; confirm cover fields unless the user requests no cover, run bundled preprocessing/postprocessing, compile, and QA the output."

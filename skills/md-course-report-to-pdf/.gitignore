@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Generated build outputs
+latex/
+*.aux
+*.log
+*.out
+*.toc
+*.xdv
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.tex
+*.pdf
+
+# Keep source templates tracked even though generated .tex files are ignored.
+!assets/
+!assets/templates/
+!assets/templates/*.tex
+
+# macOS
+.DS_Store
