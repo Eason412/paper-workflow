@@ -23,6 +23,7 @@ import random
 import re
 import sys
 import time
+from typing import Callable
 from pathlib import Path
 from urllib.parse import quote, urljoin, urlparse
 
@@ -425,29 +426,35 @@ def _download(
             return False, f"network_{type(exc).__name__}"
         if not 300 <= resp.status < 400:
             break
-        headers = {
-            str(key).lower(): value
-            for key, value in (getattr(resp, "headers", {}) or {}).items()
-        }
-        location = headers.get("location")
-        if not location:
-            return False, f"http_{resp.status}"
-        current_url = urljoin(current_url, location)
-        if _publisher_from_url(current_url, pdf=True) != publisher:
-            return False, "unsafe_pdf_url"
+        try:
+            headers = {
+                str(key).lower(): value
+                for key, value in (getattr(resp, "headers", {}) or {}).items()
+            }
+            location = headers.get("location")
+            if not location:
+                return False, f"http_{resp.status}"
+            current_url = urljoin(current_url, location)
+            if _publisher_from_url(current_url, pdf=True) != publisher:
+                return False, "unsafe_pdf_url"
+        finally:
+            resp.dispose()
     else:
         return False, "too_many_redirects"
     if resp is None:  # pragma: no cover - loop always executes
         return False, "network_no_response"
-    if not resp.ok:
-        return False, f"http_{resp.status}"
-    final_url = getattr(resp, "url", current_url)
-    if _publisher_from_url(final_url, pdf=True) != publisher:
-        return False, "unsafe_pdf_url"
     try:
-        body = resp.body()
-    except Exception as exc:
-        return False, f"read_{type(exc).__name__}"
+        if not resp.ok:
+            return False, f"http_{resp.status}"
+        final_url = getattr(resp, "url", current_url)
+        if _publisher_from_url(final_url, pdf=True) != publisher:
+            return False, "unsafe_pdf_url"
+        try:
+            body = resp.body()
+        except Exception as exc:
+            return False, f"read_{type(exc).__name__}"
+    finally:
+        resp.dispose()
     if not store.has_pdf_signature(body):
         sample = body[:65536].lower()
         if any(marker.encode() in sample for marker in LOGIN_OR_CHALLENGE_MARKERS):
@@ -606,12 +613,15 @@ def fetch_batch(
     max_items: int = 30,
     timeout: int = 60,
     overwrite: bool = False,
+    on_item_result: Callable[[dict], None] | None = None,
 ) -> list[dict]:
     """Fetch entitled PDFs for `items` through the logged-in browser session.
 
     Each item: {id, doi, title, expected_title, year, first_author, url, dest,
     idx}. `dest` is the provisional PDF path;
     `idx` (if present) is echoed back so callers can merge with prior results.
+    The optional callback runs once per emitted result, before the next item.
+    Callback failures propagate after context cleanup; they are not download errors.
     """
     validate_institutional_options(delay, jitter, max_items)
     if not items:
@@ -625,6 +635,11 @@ def fetch_batch(
         print(f"[institutional] capped at {max_items}; {dropped} item(s) skipped this run",
               file=sys.stderr)
 
+    def emit_result(res: dict) -> None:
+        results.append(res)
+        if on_item_result:
+            on_item_result(res)
+
     with sync_playwright() as p:
         ctx = _launch(p, profile_dir, headless)
         try:
@@ -636,15 +651,15 @@ def fetch_batch(
 
                 if store.verify_pdf(dest) and not overwrite:
                     consecutive_blocks = 0
-                    results.append({**base, "success": True, "source": "institutional",
-                                    "file": str(dest), "pdf_url": None, "note": "exists"})
+                    emit_result({**base, "success": True, "source": "institutional",
+                                 "file": str(dest), "pdf_url": None, "note": "exists"})
                     continue
                 if not landing:
-                    results.append({**base, "success": False, "error": "no_doi_or_url"})
+                    emit_result({**base, "success": False, "error": "no_doi_or_url"})
                     continue
                 if not _allowed_landing_url(landing):
-                    results.append({**base, "success": False,
-                                    "error": "publisher_not_allowed"})
+                    emit_result({**base, "success": False,
+                                 "error": "publisher_not_allowed"})
                     continue
 
                 label = item.get("title") or doi or landing
@@ -665,17 +680,17 @@ def fetch_batch(
                         consecutive_blocks = 0
                     elif counts_as_block:
                         consecutive_blocks += 1
-                    results.append(result)
                 except Exception as exc:
-                    results.append({**base, "success": False,
-                                    "error": f"{type(exc).__name__}"})
+                    result = {**base, "success": False,
+                              "error": f"{type(exc).__name__}"}
+                emit_result(result)
 
                 if consecutive_blocks >= 3:
                     print("[institutional] aborting: 3 blocks/login walls since the "
                           "last successful PDF — check that you are still signed in.",
                           file=sys.stderr)
                     for remaining in capped[i:]:
-                        results.append({
+                        emit_result({
                             "meta": _meta(remaining),
                             "idx": remaining.get("idx"),
                             "success": False,
@@ -687,7 +702,7 @@ def fetch_batch(
         finally:
             ctx.close()
     for item in items[max_items:]:
-        results.append({
+        emit_result({
             "meta": _meta(item),
             "idx": item.get("idx"),
             "success": False,

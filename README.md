@@ -103,6 +103,12 @@ python3 scripts/run_smoke_tests.py
 
 问题反馈与 PR 应包含最小复现、预期和实际结果、解决思路及验证记录，见 [贡献指南](CONTRIBUTING.md)。日志、截图和输入样例须去除个人信息及认证数据。
 
+仓库根目录的 `.gitignore` 同样覆盖下载 PDF、获取状态、浏览器会话和默认排版产物；模板、源码及示例仍作为版本管理内容。根目录校验命令：
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
 ## 许可证
 
 两项 Skill 的原创代码分别保留原有 MIT 许可证：[文献获取](skills/oa-paper-fetch/LICENSE)、[报告排版](skills/md-course-report-to-pdf/LICENSE)。报告排版所附校徽与官方格式资料的来源和权利说明见 [第三方材料声明](skills/md-course-report-to-pdf/THIRD_PARTY_NOTICES.md)。

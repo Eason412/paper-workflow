@@ -12,7 +12,7 @@ Load this file only when changing the template, rewriting references, debugging 
   - Official web page or news release: `[n] Institution. Title[EB/OL]. Year or publish date.`
 - Hide raw URLs, tracking parameters, access boilerplate, database names, ISSN/ISBN, and DOI URLs in the rendered bibliography unless explicitly required.
 - Keep source URLs in working notes when they are needed for verification.
-- Keep repeated citations only at the first meaningful normal-prose appearance. After automatic cleanup, inspect `latex/prepare_report.json` `qa.citation_dedup.events` to confirm that code blocks, Markdown links, image captions, tables, and the reference list did not decide the first citation location.
+- Keep repeated citations only at the first meaningful normal-prose appearance. After automatic cleanup, inspect `latex/prepare_report.json` `qa.citation_dedup.events` to confirm that HTML comments, code blocks, Markdown links, image captions, tables, and the reference list did not decide the first citation location. Comment source text remains intact and cannot supply bibliography headings or labels.
 - Put most citations in background, method, technology-route, and related-work sections. Later practice, recommendation, and conclusion sections can synthesize earlier evidence without adding new markers when that is the requested writing style.
 - A paragraph should normally carry no more than two citation markers unless the user asks for dense literature mapping.
 

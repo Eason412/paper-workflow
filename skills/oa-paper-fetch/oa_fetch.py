@@ -1380,30 +1380,6 @@ def main() -> int:
         if retry:
             import institutional_fetch
 
-            if not institutional_fetch.profile_available(settings["browser_profile"]):
-                inst_results = [
-                    {
-                        "idx": item["idx"],
-                        "success": False,
-                        "error": "profile_missing_login_required",
-                    }
-                    for item in retry
-                ]
-                print("[institutional] login profile is missing; run --institutional-login",
-                      file=sys.stderr)
-            else:
-                print(f"[institutional] retrying {len(retry)} item(s) via logged-in browser",
-                      file=sys.stderr)
-                inst_results = institutional_fetch.fetch_batch(
-                    retry,
-                    profile_dir=str(settings["browser_profile"]),
-                    delay=settings["inst_delay"],
-                    jitter=settings["inst_jitter"],
-                    headless=settings["headless"],
-                    max_items=settings["max_institutional"],
-                    timeout=settings["timeout"],
-                    overwrite=args.overwrite,
-                )
             pending_login_errors = {
                 "profile_missing_login_required",
                 "not_pdf_login_or_challenge",
@@ -1411,14 +1387,19 @@ def main() -> int:
                 "aborted_after_repeated_blocks",
             }
             records_by_index = {record["input_index"]: record for record in ready}
-            for inst_result in inst_results:
-                migration_source = None
+            handled_indices = set()
+
+            def handle_inst_result(inst_result: dict) -> None:
+                nonlocal transport_error
                 index = inst_result.get("idx")
                 if index is None or not (0 <= index < len(results)):
-                    continue
+                    return
+                if index in handled_indices:
+                    return
+                handled_indices.add(index)
                 prev = results[index]
                 if prev is None:
-                    continue
+                    return
                 prev["meta"] = _merge_metadata(
                     inst_result.get("meta"), prev.get("meta")
                 )
@@ -1454,6 +1435,7 @@ def main() -> int:
                 record = records_by_index.get(index)
                 if record:
                     _enrich_manifest_title(record, prev)
+                    migration_source = None
                     if inst_result.get("success"):
                         try:
                             migration_source = _prepare_filename_migration(
@@ -1463,17 +1445,50 @@ def main() -> int:
                             transport_error = True
                             prev["filename_error"] = f"{type(exc).__name__}: {exc}"
                             prev["target_file"] = prev.get("file")
-                    try:
-                        _persist_result(
-                            state,
-                            out_dir,
-                            record,
-                            prev,
-                            migration_source=migration_source,
-                        )
-                    except OSError as exc:
-                        transport_error = True
-                        print(f"Could not save run state: {exc}", file=sys.stderr)
+                    # 检查点失败由批次边界处理；停止后续请求，保留原 PDF 与已落盘状态。
+                    _persist_result(
+                        state,
+                        out_dir,
+                        record,
+                        prev,
+                        migration_source=migration_source,
+                    )
+
+            try:
+                if not institutional_fetch.profile_available(settings["browser_profile"]):
+                    inst_results = [
+                        {
+                            "idx": item["idx"],
+                            "success": False,
+                            "error": "profile_missing_login_required",
+                        }
+                        for item in retry
+                    ]
+                    print("[institutional] login profile is missing; run --institutional-login",
+                          file=sys.stderr)
+                    for inst_result in inst_results:
+                        handle_inst_result(inst_result)
+                else:
+                    print(f"[institutional] retrying {len(retry)} item(s) via logged-in browser",
+                          file=sys.stderr)
+                    inst_results = institutional_fetch.fetch_batch(
+                        retry,
+                        profile_dir=str(settings["browser_profile"]),
+                        delay=settings["inst_delay"],
+                        jitter=settings["inst_jitter"],
+                        headless=settings["headless"],
+                        max_items=settings["max_institutional"],
+                        timeout=settings["timeout"],
+                        overwrite=args.overwrite,
+                        on_item_result=handle_inst_result,
+                    )
+                    for inst_result in (inst_results or []):
+                        idx = inst_result.get("idx")
+                        if idx not in handled_indices:
+                            handle_inst_result(inst_result)
+            except OSError as exc:
+                print(f"Institutional batch stopped: {exc}", file=sys.stderr)
+                return 4
 
     winners = {
         record["canonical_id"]: results[record["input_index"]]

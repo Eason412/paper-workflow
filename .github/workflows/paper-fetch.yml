@@ -30,3 +30,6 @@ jobs:
         run: python oa_fetch.py --help
       - name: CLI version
         run: python oa_fetch.py --version
+      - name: Repository artifact isolation
+        working-directory: .
+        run: python -m unittest discover -s tests -v

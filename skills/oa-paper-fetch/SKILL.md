@@ -240,6 +240,12 @@ are known.
 
 ## Resume and continue
 
+Institutional results are checkpointed individually after metadata and filename
+processing. Reuse those completed checkpoints after interruption. If a checkpoint
+write fails, the backend stops further institutional requests and returns `4`;
+retain existing files and state, repair the output/storage condition, and resume
+only after the failure has been addressed. Do not reset state to force a retry.
+
 Treat rerunning the same canonical manifest in the same output directory as a
 resume. Let the backend verify `%PDF`, reuse the canonical identity and state,
 skip verified successes as `exists`, and retry unresolved items. Do not use

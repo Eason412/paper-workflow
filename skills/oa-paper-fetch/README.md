@@ -122,6 +122,8 @@ Acquisition is serial. The institutional phase stops after three HTTP 4xx, chall
 
 Rerun the same manifest in the same output directory to resume. Verified files return `exists`; missing or invalid files are fetched again. Download and resume use the same lightweight validation: more than 5 bytes and a `%PDF` prefix.
 
+Institutional results merge metadata, finalize filenames, and save checkpoints item by item. After interruption, checkpointed papers are reused directly. A checkpoint-write failure stops further institutional requests with exit `4`, preserving persisted state and the original PDF. Responses are disposed individually rather than retaining every response body until batch completion; 80 MiB remains a file-size check, not a hard transfer-memory limit.
+
 Filenames follow `year_first-author_full-title_stable-hash.pdf`, retaining an 8-character identity suffix and a 240-byte UTF-8 limit. Naming migrations use a non-overwriting hard link and persisted state; failures retain the original file.
 
 `oa_fetch_pending.csv` is generated when explicit continuation is needed. Refresh expired login before resuming; wait for a new continuation request after reaching the cap:

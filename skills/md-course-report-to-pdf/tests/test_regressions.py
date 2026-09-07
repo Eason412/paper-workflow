@@ -163,6 +163,75 @@ class PrepareRegressionTests(unittest.TestCase):
         self.assertEqual(report["removed_marker_count"], 0)
         self.assertEqual(prepare.collect_body_citations(deduped.split("## References", 1)[0]), [1, 2])
 
+    def test_html_comments_do_not_participate_in_citation_deduplication(self) -> None:
+        """HTML comments must not own first-citation position or affect QA."""
+        for comment, comment_first in (
+            ("<!-- 引用 [1] 但不可见 -->", True),
+            ("<!-- 引用 [1] 但不可见 -->", False),
+        ):
+            with self.subTest(comment=comment, comment_first=comment_first):
+                prose = "首次正文引用[1]。"
+                parts = [comment, prose] if comment_first else [prose, comment]
+                body = "\n\n".join(parts) + "\n\n再次引用[1]。"
+                deduped, report = prepare.dedupe_repeated_citations(body)
+                self.assertIn(comment, deduped)
+                self.assertIn(prose, deduped)
+                self.assertEqual(report["removed_marker_count"], 1)
+                self.assertEqual(prepare.collect_body_citations(body), [1])
+
+    def test_multiline_html_comment_does_not_hide_citations(self) -> None:
+        body = "<!-- 第一行 [1]\n第二行 -->\n\n正文引用[1]。\n\n再次引用[2]。\n\n## References\n\n[1] A.\n[2] B.\n"
+
+        deduped, report = prepare.dedupe_repeated_citations(body)
+
+        self.assertIn("正文引用[1]。", deduped)
+        self.assertIn("再次引用[2]。", deduped)
+        self.assertEqual(report["removed_marker_count"], 0)
+        self.assertEqual(prepare.collect_body_citations(deduped.split("## References", 1)[0]), [1, 2])
+
+    def test_comment_inside_code_does_not_swallow_following_citation(self) -> None:
+        body = "```html\n<!-- [1] -->\n```\n\n正文引用[1]。\n\n再次引用[2]。\n\n## References\n\n[1] A.\n[2] B.\n"
+
+        deduped, report = prepare.dedupe_repeated_citations(body)
+
+        self.assertIn("正文引用[1]。", deduped)
+        self.assertIn("再次引用[2]。", deduped)
+        self.assertEqual(report["removed_marker_count"], 0)
+        self.assertEqual(prepare.collect_body_citations(deduped.split("## References", 1)[0]), [1, 2])
+
+    def test_comment_with_unpaired_math_delimiter_does_not_hide_citations(self) -> None:
+        body = "<!-- 未配对 $x[1] -->\n\n正文引用[1]。\n\n## References\n\n[1] A.\n"
+
+        deduped, report = prepare.dedupe_repeated_citations(body)
+
+        self.assertIn("正文引用[1]。", deduped)
+        self.assertEqual(report["removed_marker_count"], 0)
+        self.assertEqual(prepare.collect_body_citations(deduped.split("## References", 1)[0]), [1])
+
+    def test_comment_delimiters_precede_inline_code_and_math_masking(self) -> None:
+        for body in (
+            "<!-- ` -->正文引用[1]，代码 `y`。",
+            "<!-- $x -->正文引用[1]，变量 $y$。",
+            "代码 `<!--` 与正文引用[1]。",
+            "代码 ``示例 ` <!--`` 与正文引用[1]。",
+        ):
+            with self.subTest(body=body):
+                self.assertEqual(prepare.collect_body_citations(body), [1])
+                transformed, _ = prepare.dedupe_repeated_citations(body + "\n\n再次引用[1]。")
+                self.assertIn("正文引用[1]", transformed)
+                self.assertIn("再次引用。", transformed)
+
+    def test_escaped_comment_opening_remains_visible_prose(self) -> None:
+        body = r"字面量 \<!-- [1] -->，正文引用[1]。"
+        transformed, _ = prepare.dedupe_repeated_citations(body)
+        self.assertIn(r"\<!-- [1] -->", transformed)
+        self.assertIn("正文引用。", transformed)
+
+    def test_commented_bibliography_is_not_a_real_reference_section(self) -> None:
+        body = "<!--\n## References\n[1] Hidden reference\n-->\n\n正文引用[1]。"
+        self.assertEqual(prepare.split_reference_section(body), (body, ""))
+        self.assertEqual(prepare.extract_reference_numbers(body), [])
+
 
 class BuildRegressionTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("pandoc"), "pandoc is required for metadata integration")

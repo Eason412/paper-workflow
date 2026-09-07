@@ -6,3 +6,29 @@ __pycache__/
 node_modules/
 .env
 .env.*
+
+# Downloaded documents and acquisition state, including runs from the repo root.
+*.pdf
+oa_fetch_results.json
+oa_fetch_results.csv
+oa_fetch_state.json
+oa_fetch_manifest.csv
+oa_fetch_pending.csv
+*.part-*
+*.log
+.cache/
+
+# Local authenticated browser sessions.
+profile/
+.oa-paper-fetch/
+
+# Default report build artifacts. Source templates remain trackable.
+latex/
+course_report.tex
+*.aux
+*.out
+*.toc
+*.xdv
+*.fls
+*.fdb_latexmk
+*.synctex.gz

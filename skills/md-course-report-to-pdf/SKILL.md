@@ -27,7 +27,7 @@ Follow this workflow to turn one Chinese Markdown course report into a polished 
 2. **Plan and verify references when requested**
    - Search official sources and academic databases/pages before adding references; do not invent titles, authors, years, DOI, URLs, or journal details.
    - Use concise GB/T 7714 numeric entries unless the school provides a stricter bibliography template. Keep rendered entries short; hide raw URLs/DOI URLs unless explicitly required.
-   - Keep each reference number at its first meaningful appearance in normal body prose. Later repeated citations to the same reference should be removed unless the user explicitly wants dense citation reminders; code blocks, Markdown links, image captions, pipe tables, and the reference list itself must not decide the first citation position.
+   - Keep each reference number at its first meaningful appearance in normal body prose. Later repeated citations to the same reference should be removed unless the user explicitly wants dense citation reminders; HTML comments, code blocks, Markdown links, image captions, pipe tables, and the reference list itself must not decide the first citation position. Preserve comment source text while excluding it from citation and bibliography detection.
    - After rewriting, verify that cited numbers have matching reference-list entries and that unused reference entries are intentional. For detailed reference shapes and citation distribution rules, use `references/format-qa.md`.
 
 3. **Prepare figures**

@@ -767,6 +767,9 @@ class InstitutionalBoundaryTests(unittest.TestCase):
             url = "https://ieeexplore.ieee.org/stampPDF/getPDF.jsp?arnumber=1"
             headers = {"location": "https://evil.example/paper.pdf"}
 
+            def dispose(self):
+                pass
+
         class RedirectRequest:
             def __init__(self):
                 self.calls = []
@@ -801,6 +804,9 @@ class InstitutionalBoundaryTests(unittest.TestCase):
 
             def body(self):
                 return self._body
+
+            def dispose(self):
+                pass
 
         class Request:
             def __init__(self):
@@ -847,6 +853,9 @@ class InstitutionalBoundaryTests(unittest.TestCase):
 
             def body(self):
                 return self._body
+
+            def dispose(self):
+                pass
 
         class Request:
             def __init__(self, body):
@@ -1191,6 +1200,94 @@ class InstitutionalBoundaryTests(unittest.TestCase):
             [result["error"] for result in results[3:]],
             ["aborted_after_repeated_blocks"] * 2,
         )
+
+    def test_download_disposes_response_on_all_paths(self):
+        class TrackedResponse:
+            def __init__(self, status=200, url="https://ieeexplore.ieee.org/stampPDF/final.pdf", headers=None, body=b"%PDF-1.7\nfixture"):
+                self.status = status
+                self.ok = 200 <= status < 300
+                self.url = url
+                self.headers = headers or {}
+                self._body = body
+                self.disposed = False
+
+            def body(self):
+                if isinstance(self._body, Exception):
+                    raise self._body
+                return self._body
+
+            def dispose(self):
+                self.disposed = True
+
+        # 1. Successful download
+        with TemporaryDirectory() as tmp:
+            resp = TrackedResponse()
+            ctx = FakeContext()
+            ctx.request = mock.Mock(get=mock.Mock(return_value=resp))
+            ok, reason = institutional_fetch._download(ctx, resp.url, Path(tmp) / "p.pdf", 5, publisher="ieee")
+            self.assertTrue(ok)
+            self.assertTrue(resp.disposed, "successful download must dispose response")
+
+        # 2. Redirect hops (each hop disposed)
+        with TemporaryDirectory() as tmp:
+            resp1 = TrackedResponse(status=302, url="https://ieeexplore.ieee.org/start", headers={"location": "/final.pdf"})
+            resp2 = TrackedResponse(status=200, url="https://ieeexplore.ieee.org/final.pdf")
+            ctx = FakeContext()
+            ctx.request = mock.Mock(get=mock.Mock(side_effect=[resp1, resp2]))
+            ok, reason = institutional_fetch._download(ctx, resp1.url, Path(tmp) / "p.pdf", 5, publisher="ieee")
+            self.assertTrue(ok)
+            self.assertTrue(resp1.disposed, "redirect hop 1 must be disposed")
+            self.assertTrue(resp2.disposed, "final redirect response must be disposed")
+
+        # 3. 4xx response
+        with TemporaryDirectory() as tmp:
+            resp = TrackedResponse(status=403, url="https://ieeexplore.ieee.org/stampPDF/final.pdf")
+            ctx = FakeContext()
+            ctx.request = mock.Mock(get=mock.Mock(return_value=resp))
+            ok, reason = institutional_fetch._download(ctx, resp.url, Path(tmp) / "p.pdf", 5, publisher="ieee")
+            self.assertFalse(ok)
+            self.assertEqual(reason, "http_403")
+            self.assertTrue(resp.disposed, "4xx response must be disposed")
+
+        # 4. Unsafe redirect
+        with TemporaryDirectory() as tmp:
+            resp = TrackedResponse(status=302, url="https://ieeexplore.ieee.org/start", headers={"location": "https://evil.example/p.pdf"})
+            ctx = FakeContext()
+            ctx.request = mock.Mock(get=mock.Mock(return_value=resp))
+            ok, reason = institutional_fetch._download(ctx, resp.url, Path(tmp) / "p.pdf", 5, publisher="ieee")
+            self.assertFalse(ok)
+            self.assertEqual(reason, "unsafe_pdf_url")
+            self.assertTrue(resp.disposed, "unsafe redirect response must be disposed")
+
+        # 5. Read body failure
+        with TemporaryDirectory() as tmp:
+            resp = TrackedResponse(body=RuntimeError("connection terminated while reading"))
+            ctx = FakeContext()
+            ctx.request = mock.Mock(get=mock.Mock(return_value=resp))
+            ok, reason = institutional_fetch._download(ctx, resp.url, Path(tmp) / "p.pdf", 5, publisher="ieee")
+            self.assertFalse(ok)
+            self.assertEqual(reason, "read_RuntimeError")
+            self.assertTrue(resp.disposed, "read body failure must dispose response")
+
+        # 6. Invalid signature / login HTML
+        with TemporaryDirectory() as tmp:
+            resp = TrackedResponse(body=b"<html>Sign in to continue</html>")
+            ctx = FakeContext()
+            ctx.request = mock.Mock(get=mock.Mock(return_value=resp))
+            ok, reason = institutional_fetch._download(ctx, resp.url, Path(tmp) / "p.pdf", 5, publisher="ieee")
+            self.assertFalse(ok)
+            self.assertEqual(reason, "not_pdf_login_or_challenge")
+            self.assertTrue(resp.disposed, "invalid signature/login must dispose response")
+
+        # 7. Oversize
+        with TemporaryDirectory() as tmp:
+            resp = TrackedResponse(body=b"%PDF-1.7\n" + b"0" * (institutional_fetch.MAX_PDF_BYTES + 1))
+            ctx = FakeContext()
+            ctx.request = mock.Mock(get=mock.Mock(return_value=resp))
+            ok, reason = institutional_fetch._download(ctx, resp.url, Path(tmp) / "p.pdf", 5, publisher="ieee")
+            self.assertFalse(ok)
+            self.assertEqual(reason, "too_large")
+            self.assertTrue(resp.disposed, "oversize response must be disposed")
 
 
 if __name__ == "__main__":

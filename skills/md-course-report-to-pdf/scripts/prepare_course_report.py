@@ -196,7 +196,7 @@ def extract_reference_numbers(text: str) -> list[int]:
     numbers: set[int] = set()
     lines = text.splitlines()
     protected = protected_line_indexes(lines)
-    for idx, line in enumerate(lines):
+    for idx, line in enumerate(comment_context_lines(lines, protected)):
         if idx in protected or LINK_DEFINITION_RE.match(line):
             continue
         match = REFERENCE_LABEL_RE.match(line)
@@ -210,7 +210,8 @@ def extract_reference_numbers(text: str) -> list[int]:
 def split_reference_section(body: str) -> tuple[str, str]:
     lines = body.splitlines()
     protected = protected_line_indexes(lines)
-    candidates = [idx for idx, line in enumerate(lines) if idx not in protected and is_reference_heading(line)]
+    visible = comment_context_lines(lines, protected)
+    candidates = [idx for idx, line in enumerate(visible) if idx not in protected and is_reference_heading(line)]
     for idx in reversed(candidates):
         tail = "\n".join(lines[idx + 1 :])
         if extract_reference_numbers(tail):
@@ -438,24 +439,70 @@ def mask_inline_context(line: str) -> str:
     return mask_math_context(masked)
 
 
+MATH_CONTEXT_RE = re.compile(
+    r"(?<!\\)(?:"
+    r"\$\$(?:\\.|[^\\])*?\$\$"
+    r"|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]"
+    r"|\$(?![\s$])(?:\\.|(?!\n[ \t]*\n)[^$\\])*?(?<!\s)\$(?!\d)"
+    r")"
+)
+
+
 def mask_math_context(text: str) -> str:
     """Hide math without changing offsets or lines used by citation diagnostics."""
-    math = re.compile(
-        r"(?<!\\)(?:"
-        r"\$\$(?:\\.|[^\\])*?\$\$"
-        r"|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]"
-        r"|\$(?![\s$])(?:\\.|(?!\n[ \t]*\n)[^$\\])*?(?<!\s)\$(?!\d)"
-        r")"
+    return MATH_CONTEXT_RE.sub(lambda match: re.sub(r"[^\n]", " ", match.group(0)), text)
+
+
+def mask_html_comments(text: str) -> str:
+    """Hide HTML comment spans without changing offsets or line counts.
+
+    Scan before generic inline masking: a backtick inside a comment must not
+    pair with one in later prose and hide the comment terminator. Code spans,
+    math and escaped openings remain literal to this comment scan.
+    """
+    masked = list(text)
+    position = 0
+    while position < len(text):
+        # 按起始位置判定语义：已进入代码/公式时，内部的注释符只作为字面内容。
+        math = MATH_CONTEXT_RE.match(text, position)
+        if math:
+            position = math.end()
+            continue
+        if text[position] == "\\":
+            position += 2
+            continue
+        if text[position] == "`":
+            marker = re.match(r"`+", text[position:]).group(0)
+            close = re.search(r"(?<!`)" + re.escape(marker) + r"(?!`)", text[position + len(marker):])
+            if close:
+                position += len(marker) + close.end()
+                continue
+        if not text.startswith("<!--", position):
+            position += 1
+            continue
+        end = text.find("-->", position + 4)
+        if end == -1:
+            end = len(text)
+        else:
+            end += 3
+        for idx in range(position, end):
+            if text[idx] != "\n":
+                masked[idx] = " "
+        position = end
+    return "".join(masked)
+
+
+def comment_context_lines(lines: list[str], protected: set[int]) -> list[str]:
+    # 先屏蔽已确认的块级结构，再识别注释；注释不能参与后续反引号或数学配对。
+    context = "\n".join(
+        " " * len(line) if idx in protected else line
+        for idx, line in enumerate(lines)
     )
-    return math.sub(lambda match: re.sub(r"[^\n]", " ", match.group(0)), text)
+    return mask_html_comments(context).split("\n")
 
 
 def citation_context_lines(lines: list[str], protected: set[int]) -> list[str]:
-    # Mask code/links first so their literal math delimiters cannot span prose.
-    context = "\n".join(
-        " " * len(line) if idx in protected else mask_inline_context(line)
-        for idx, line in enumerate(lines)
-    )
+    context = "\n".join(mask_inline_context(line) for line in comment_context_lines(lines, protected))
     return mask_math_context(context).split("\n")
 
 
