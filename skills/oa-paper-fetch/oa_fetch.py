@@ -396,14 +396,30 @@ def openalex_lookup(doi: str | None, title: str | None, timeout: int) -> dict:
             (authorships[0].get("author") or {}).get("display_name")
         )
     urls = []
-    for key in ("best_oa_location", "primary_location"):
-        loc = data.get(key) or {}
-        for url_key in ("pdf_url", "landing_page_url"):
+    locations = []
+
+    def add_location(location: dict | None) -> None:
+        if location and location.get("is_oa") is not False:
+            locations.append(location)
+
+    add_location(data.get("best_oa_location"))
+    # OpenAlex's primary location is the version-of-record location, not
+    # necessarily an OA copy.  Do not turn an explicitly closed work into a
+    # sequence of predictable paywall/landing-page requests.  Missing
+    # ``is_oa`` remains backward compatible with older or mocked responses.
+    open_access = data.get("open_access") or {}
+    if open_access.get("is_oa") is not False:
+        add_location(data.get("primary_location"))
+    # Prefer actual PDF endpoints across locations before trying a landing
+    # page fallback.  A landing page can still expose a public PDF, but it is
+    # a slower and less reliable candidate than an advertised PDF URL.
+    for url_key in ("pdf_url", "landing_page_url"):
+        for loc in locations:
             u = loc.get(url_key)
-            if u and (u not in urls):
+            if u and u not in urls:
                 urls.append(u)
-    oa_url = ((data.get("open_access") or {}).get("oa_url"))
-    if oa_url and oa_url not in urls:
+    oa_url = open_access.get("oa_url")
+    if open_access.get("is_oa") is not False and oa_url and oa_url not in urls:
         urls.append(oa_url)
     return {
         "doi": manifest_tools.normalize_doi(data.get("doi")) or doi,
@@ -554,14 +570,13 @@ def unpaywall_lookup(doi: str, timeout: int) -> dict:
     if not data:
         return {}
     urls = []
-    for loc_key in ("best_oa_location",):
-        loc = data.get(loc_key) or {}
-        for url_key in ("url_for_pdf", "url"):
-            u = loc.get(url_key)
-            if u and u not in urls:
-                urls.append(u)
-    for loc in data.get("oa_locations") or []:
-        for url_key in ("url_for_pdf", "url"):
+    locations = [data.get("best_oa_location") or {}]
+    locations.extend(data.get("oa_locations") or [])
+    # Unpaywall documents ``url_for_pdf`` as the direct PDF copy and ``url``
+    # as a landing-page fallback.  Try every direct copy before page URLs so a
+    # stale landing page cannot delay a usable repository PDF.
+    for url_key in ("url_for_pdf", "url"):
+        for loc in locations:
             u = loc.get(url_key)
             if u and u not in urls:
                 urls.append(u)
@@ -710,37 +725,23 @@ def resolve_item(item: dict, out_dir: Path, timeout: int, overwrite: bool, dry_r
     title_resolution_blocked = bool(
         title_resolution and title_resolution.get("status") != "confirmed"
     )
-    if not arxiv_id and not title_resolution_blocked:
-        for source_name, lookup in (
-            ("openalex", lambda: openalex_lookup(doi, title, timeout)),
-            ("unpaywall", lambda: unpaywall_lookup(doi, timeout) if doi else {}),
-            ("semantic_scholar", lambda: semantic_scholar_lookup(doi, timeout) if doi else {}),
-        ):
-            found = lookup()
-            sources.append({"source": source_name, "result": bool(found), "skipped": found.get("skipped") if isinstance(found, dict) else None})
-            if not found:
-                continue
-            for key in ("title", "year", "first_author", "doi"):
-                if found.get(key) and not meta.get(key):
-                    meta[key] = found[key]
-            for u in found.get("urls") or []:
-                candidates.append((source_name, u, found))
-
-    seen = set()
-    candidates = [(s, u, m) for s, u, m in candidates if not (u in seen or seen.add(u))]
     canonical_id = item.get("canonical_id") or (
         f"doi:{doi}" if doi else f"legacy:{title or original_url or item.get('id') or 'paper'}"
     )
     state_filename = item.get("_state_filename")
-    if state_filename and Path(state_filename).name == state_filename:
-        filename = state_filename
-    else:
-        filename = metadata_filename(
-            meta,
-            filename_fallback(item, meta),
-            canonical_id,
-        )
-    dest = out_dir / filename
+
+    def refresh_destination() -> Path:
+        if state_filename and Path(state_filename).name == state_filename:
+            filename = state_filename
+        else:
+            filename = metadata_filename(
+                meta,
+                filename_fallback(item, meta),
+                canonical_id,
+            )
+        return out_dir / filename
+
+    dest = refresh_destination()
     identity = {
         "canonical_id": canonical_id,
         "input_id": item.get("id"),
@@ -775,6 +776,36 @@ def resolve_item(item: dict, out_dir: Path, timeout: int, overwrite: bool, dry_r
         return blocked
 
     if dry_run:
+        # Dry-run is an inspection mode: retain the complete candidate list
+        # and source evidence instead of stopping after the first candidate.
+        if not arxiv_id and not title_resolution_blocked:
+            for source_name, lookup in (
+                ("openalex", lambda: openalex_lookup(doi, title, timeout)),
+                ("unpaywall", lambda: unpaywall_lookup(doi, timeout) if doi else {}),
+                ("semantic_scholar", lambda: semantic_scholar_lookup(doi, timeout) if doi else {}),
+            ):
+                found = lookup()
+                sources.append({
+                    "source": source_name,
+                    "result": bool(found),
+                    "skipped": found.get("skipped") if isinstance(found, dict) else None,
+                })
+                if not found:
+                    continue
+                for key in ("title", "year", "first_author", "doi"):
+                    if found.get(key) and not meta.get(key):
+                        meta[key] = found[key]
+                for u in found.get("urls") or []:
+                    candidates.append((source_name, u, found))
+
+        seen = set()
+        candidates = [
+            (s, u, m)
+            for s, u, m in candidates
+            if not (u in seen or seen.add(u))
+        ]
+        dest = refresh_destination()
+        identity["target_file"] = str(dest)
         public_candidates = [
             (source, url, metadata)
             for source, url, metadata in candidates
@@ -797,8 +828,17 @@ def resolve_item(item: dict, out_dir: Path, timeout: int, overwrite: bool, dry_r
             **identity,
         }
 
+    # The normal path is deliberately source-serial: query one OA index,
+    # try its advertised URLs, and query the next index only after those URLs
+    # fail.  This avoids two metadata requests and their candidate downloads
+    # for the common case where OpenAlex or Unpaywall already has a usable PDF.
+    seen = set()
     attempts = []
-    for source, url, _ in candidates:
+
+    def attempt_candidate(source: str, url: str) -> dict | None:
+        if not url or url in seen:
+            return None
+        seen.add(url)
         ok, reason = download_pdf(url, dest, timeout, overwrite)
         attempts.append({"source": source, "url": url, "result": reason})
         if ok:
@@ -815,6 +855,36 @@ def resolve_item(item: dict, out_dir: Path, timeout: int, overwrite: bool, dry_r
                 **identity,
             }
         time.sleep(0.5)
+        return None
+
+    for source, url, _ in candidates:
+        result = attempt_candidate(source, url)
+        if result:
+            return result
+
+    if not arxiv_id and not title_resolution_blocked:
+        for source_name, lookup in (
+            ("openalex", lambda: openalex_lookup(doi, title, timeout)),
+            ("unpaywall", lambda: unpaywall_lookup(doi, timeout) if doi else {}),
+            ("semantic_scholar", lambda: semantic_scholar_lookup(doi, timeout) if doi else {}),
+        ):
+            found = lookup()
+            sources.append({
+                "source": source_name,
+                "result": bool(found),
+                "skipped": found.get("skipped") if isinstance(found, dict) else None,
+            })
+            if not found:
+                continue
+            for key in ("title", "year", "first_author", "doi"):
+                if found.get(key) and not meta.get(key):
+                    meta[key] = found[key]
+            dest = refresh_destination()
+            identity["target_file"] = str(dest)
+            for url in found.get("urls") or []:
+                result = attempt_candidate(source_name, url)
+                if result:
+                    return result
 
     return {
         "success": False,
