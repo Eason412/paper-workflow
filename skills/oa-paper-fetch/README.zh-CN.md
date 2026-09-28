@@ -4,7 +4,7 @@
 
 文献身份解析、开放获取检索与授权机构全文下载。支持完整标题、DOI、URL、Markdown、CSV 和逐行清单，提供批量处理、浏览器登录会话复用、准确文件命名及失败项续传。
 
-默认输出目录为 `~/Desktop/Papers`；当前 CLI 版本为 `0.5.0`，OA 层需要 Python 3.10+，仅使用标准库。
+默认输出目录为 `~/Desktop/Papers`；当前 CLI 版本为 `0.5.0`，独立运行的 OA 层需要 Python 3.10+、仅使用标准库；uv 管理的环境使用 Python 3.12。
 
 ## 安装与入口
 
@@ -71,14 +71,14 @@ python3 oa_fetch.py --batch "/absolute/references.csv" --manifest-out "/absolute
 仅机构访问需要 Playwright 和 Chromium：
 
 ```bash
-python3 -m pip install -r requirements.txt
-python3 -m playwright install chromium
+uv sync
+uv run python -m playwright install chromium
 ```
 
 ### 首次登录与会话刷新
 
 ```bash
-python3 oa_fetch.py --institutional-login
+uv run python oa_fetch.py --institutional-login
 ```
 
 程序打开可见浏览器及 IEEE Xplore、Wiley Online Library、Elsevier ScienceDirect 页面。用户自行选择机构访问并完成 SSO/MFA，完成后回到终端按 Enter。
@@ -158,7 +158,7 @@ python3 oa_fetch.py --batch "/absolute/papers/oa_fetch_pending.csv" --out "/abso
 ## 开发与反馈
 
 ```bash
-python3 -m unittest discover -s tests -v
+uv run pytest -q
 python3 -m py_compile oa_fetch.py institutional_fetch.py config.py manifest.py store.py
 python3 oa_fetch.py --version
 ```

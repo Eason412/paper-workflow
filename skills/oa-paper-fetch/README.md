@@ -4,7 +4,7 @@
 
 Paper identity resolution, open-access discovery, and entitled institutional PDF acquisition. Supports exact titles, DOIs, URLs, Markdown, CSV, and line-based lists, with batch processing, browser-session reuse, bibliographic filenames, and resumable failures.
 
-The default output is `~/Desktop/Papers`. CLI version: `0.5.0`. The OA layer requires Python 3.10+ and uses only the standard library.
+The default output is `~/Desktop/Papers`. CLI version: `0.5.0`. The standalone OA layer requires Python 3.10+ and uses only the standard library; the uv-managed environment uses Python 3.12.
 
 ## Installation and entrypoints
 
@@ -71,14 +71,14 @@ python3 oa_fetch.py --batch "/absolute/references.csv" --manifest-out "/absolute
 Only institutional access requires Playwright and Chromium:
 
 ```bash
-python3 -m pip install -r requirements.txt
-python3 -m playwright install chromium
+uv sync
+uv run python -m playwright install chromium
 ```
 
 ### Initial login and session refresh
 
 ```bash
-python3 oa_fetch.py --institutional-login
+uv run python oa_fetch.py --institutional-login
 ```
 
 A visible browser opens IEEE Xplore, Wiley Online Library, and Elsevier ScienceDirect. The user selects institutional access and completes SSO/MFA, then presses Enter in the terminal.
@@ -158,7 +158,7 @@ Exit codes: `0` success or usable preflight; `1` failed/pending items; `2` inval
 ## Development and feedback
 
 ```bash
-python3 -m unittest discover -s tests -v
+uv run pytest -q
 python3 -m py_compile oa_fetch.py institutional_fetch.py config.py manifest.py store.py
 python3 oa_fetch.py --version
 ```
