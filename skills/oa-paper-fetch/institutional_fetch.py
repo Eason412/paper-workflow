@@ -196,6 +196,27 @@ def _counts_as_block(reason: str | None) -> bool:
     )
 
 
+def _looks_like_html(body: bytes, headers: dict | None = None) -> bool:
+    """Recognize an HTML response without treating it as a PDF failure only.
+
+    ScienceDirect can return an HTML ViewPDF/access page from a ``pdfft`` URL
+    even when the publisher article page is reachable.  The content type is
+    useful when present, while the small prefix check covers responses with a
+    missing or misleading header.  This is deliberately only a diagnostic
+    classifier; it never changes the URL allowlist or retries the request.
+    """
+    normalized_headers = {
+        str(key).lower(): str(value or "")
+        for key, value in (headers or {}).items()
+    }
+    content_type = normalized_headers.get("content-type", "")
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    if media_type in {"text/html", "application/xhtml+xml"}:
+        return True
+    prefix = bytes(body or b"").lstrip()[:256].lower()
+    return prefix.startswith((b"<!doctype html", b"<html", b"<head", b"<body"))
+
+
 def _prepare_profile_dir(profile_dir: str) -> Path:
     path = Path(profile_dir).expanduser()
     path.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -449,6 +470,7 @@ def _download(
         final_url = getattr(resp, "url", current_url)
         if _publisher_from_url(final_url, pdf=True) != publisher:
             return False, "unsafe_pdf_url"
+        response_headers = getattr(resp, "headers", {}) or {}
         try:
             body = resp.body()
         except Exception as exc:
@@ -459,6 +481,8 @@ def _download(
         sample = body[:65536].lower()
         if any(marker.encode() in sample for marker in LOGIN_OR_CHALLENGE_MARKERS):
             return False, "not_pdf_login_or_challenge"
+        if publisher == "elsevier" and _looks_like_html(body, response_headers):
+            return False, "not_pdf_browser_download_required"
         return False, "not_pdf"
     if len(body) > MAX_PDF_BYTES:
         return False, "too_large"
