@@ -36,6 +36,8 @@ Successful PDFs and reports are saved to the default directory. Use `--out` for 
 
 OA candidates include direct PDFs, arXiv, OpenAlex, Unpaywall, and Semantic Scholar. Unpaywall can use an existing local `UNPAYWALL_EMAIL`.
 
+Normal downloads try candidates as each source returns and stop querying later sources after a successful PDF. Direct PDF URLs take priority over landing pages within OpenAlex and Unpaywall results; explicitly closed OpenAlex locations are skipped. Dry-run still gathers the full candidate evidence.
+
 ## Batch manifests and identity
 
 CSV fields are shown below; leave unknown values empty:
@@ -95,6 +97,14 @@ OA runs first. Only unresolved items with eligible identities enter institutiona
 
 Valid sessions are reusable across runs. `--headless` is for reusing an established valid session; initial login and repair require a visible browser. Missing profiles return `profile_missing_login_required`; expired sessions return `login_refresh_required`.
 
+## Agent-assisted browser workflow
+
+For an already authenticated Chrome session, Codex can use an available browser-control tool in that same session. This is a separate execution mode from the CLI's isolated profile; authentication is never transferred between them. See [browser workflow](references/browser-workflow.md).
+
+Before a batch, establish the requested journal/count, inspect the selected local output and known download records for reuse, and validate one paper through saving and identity checks. Keep one browser owner per publisher; delegate independent file verification rather than handing off live tabs. Journal folders and reuse of PDFs outside the CLI state are coordinated by the agent, not new CLI options. Close task-created pages only after their downloads have been saved.
+
+Both institutional routes use a base delay of at least 4 seconds, jitter within 0–10 seconds, and at most 30 attempts per run. Count browser attempts explicitly; switching routes does not reset the count.
+
 ## Preferences and batch limits
 
 Non-sensitive preferences are stored in `~/.oa-paper-fetch/config.json`. Precedence is explicit run arguments, saved preferences, then built-in defaults. Save standing choices only on user request:
@@ -142,6 +152,7 @@ Run one job at a time per output directory. Structurally invalid or unsupported-
 | `failed` / `pending` | Failed acquisition / further action needed |
 | `title_resolution_ambiguous` | Conflicting candidate DOIs; clarify identity |
 | `title_resolution_unresolved` | Supply a DOI, article URL, or exact title |
+| `not_pdf_browser_download_required` | ScienceDirect returned HTML; recorded as `failed` with `institutional.error` in JSON, not in the pending CSV; an authorized browser may use the normal PDF flow |
 | `publisher_title_mismatch` | Publisher title differs from the expected title |
 | `publisher_title_unverifiable` | Publisher page lacks a verifiable title |
 | `profile_missing_login_required` / `login_refresh_required` | Initial login / session refresh |

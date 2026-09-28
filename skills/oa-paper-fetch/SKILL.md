@@ -1,18 +1,58 @@
 ---
 name: oa-paper-fetch
-description: Use when the user asks to find or download academic paper PDFs, download many references found by an AI, fill a reference folder, resume an earlier paper-download job, configure a default paper directory or pacing, or reuse institutional access. Accept DOI, title, URL, Markdown, CSV, or plain text; normalize a stable manifest; download OA first; and optionally reuse a user-authenticated session limited to IEEE Xplore, Wiley Online Library, and Elsevier ScienceDirect. Never use Sci-Hub, bypass a paywall, or handle school credentials.
+description: "查找并下载学术论文 PDF（DOI、标题、链接或参考文献列表），先走开放获取，必要时复用你已登录的 IEEE、Wiley、ScienceDirect 会话，支持批量和断点续传。不用于 Sci-Hub 或绕过付费墙。"
 ---
 
 # OA Paper Fetch
 
 Use this `SKILL.md` as the primary entry point. Treat `oa_fetch.py` and
-`institutional_fetch.py` as execution backends. Run the backend for the user;
-do not make them assemble CLI commands unless they request the commands.
+`institutional_fetch.py` as the CLI execution backends. Run the chosen route
+for the user; do not make them assemble CLI commands unless requested.
+
+## Scope and execution route
+
+First pin the requested papers, source, publisher/issue or reference-list boundary,
+destination, and pacing for **this run**. A named journal subset is the batch:
+do not fetch the rest of a larger reference list. Check the destination and any
+existing manifest, results, and verified PDFs before requesting a paper; skip
+already obtained identities and resume only the requested unresolved rows.
+Do not convert a one-run preference into saved configuration.
+
+Choose one institutional session route for the batch. The CLI uses its own
+isolated persistent browser profile; an already signed-in ordinary Chrome is
+not evidence that this profile is signed in. If the current browser tool can
+operate the user's signed-in publisher tabs and save downloads, use that
+session directly instead of repeatedly launching the separate CLI profile.
+Validate access, identity, actual PDF saving, and the result record on one
+paper before the remainder. If the selected route cannot complete that check,
+report the exact obstacle and switch routes only when the alternative is
+available within the user's authorization. Do not repeat permission questions
+for the same already-authorized access.
+
+Treat `not_pdf_browser_download_required` as a transport handoff: the direct
+publisher PDF request returned ordinary HTML, so it did not download a paper.
+When the user has already authorized the signed-in browser route, use the same
+session's normal View PDF/Download PDF flow once without asking them to log in
+again. Validate the saved PDF fully before continuing the batch. Do not loop the
+direct request or describe the current CLI backend as already handling browser
+download events.
+The CLI records this as `failed`, with the diagnostic in `institutional.error`
+in `oa_fetch_results.json`; it does not add the item to `oa_fetch_pending.csv`.
+Select the affected identities from that result report for browser handoff,
+retain unresolved rows, and record each verified browser result separately.
+
+For interactive browser retrieval, read
+[the browser workflow](references/browser-workflow.md). Keep one owner for
+each publisher session and its tabs; other agents may independently check
+bibliography or local results offline, but cannot take over another agent's
+browser tab. Close task-opened article/PDF tabs after saving and verifying.
 
 ## Non-negotiable rules
 
 - Apply OA first. Try direct open PDFs, arXiv, OpenAlex, Unpaywall, and Semantic
-  Scholar before any institutional browser request.
+  Scholar as applicable before institutional fallback. A verified OA success
+  ends acquisition for that paper; do not query remaining sources merely to
+  exhaust the list. Dry-run retains full candidate discovery.
 - Limit institutional fallback to content the user is entitled to access on
   IEEE Xplore, Wiley Online Library, and Elsevier ScienceDirect. Never expand
   the publisher allowlist silently.
@@ -23,9 +63,13 @@ do not make them assemble CLI commands unless they request the commands.
   session cookies in the isolated local profile.
 - Never use Sci-Hub, shared credentials, CAPTCHA automation, paywall
   circumvention, proxy rotation, or anti-bot evasion.
-- Keep all downloads serial. Keep institutional delay at least 4 seconds,
-  jitter within 0--10 seconds, and institutional attempts at or below 30 per
-  run. Never chain additional runs automatically to bypass the cap.
+- Keep downloads serial. Both CLI and interactive institutional retrieval
+  use a base delay of at least 4 seconds, jitter within 0--10 seconds, and at
+  most 30 institutional attempts per run. The CLI enforces these limits;
+  track them explicitly for an interactive browser batch. Never chain runs or
+  switch routes to bypass the cap. If the user asks for at least 3 seconds
+  between papers, use the more conservative 4-second minimum without asking
+  again.
 - Treat `~/.oa-paper-fetch/profile` as sensitive. Keep it local; never inspect,
   print, copy, upload, synchronize, or commit its contents.
 - Do not invent bibliographic metadata. Preserve titles, DOI values, and URLs
@@ -154,8 +198,8 @@ The institutional backend requires Playwright. If it is missing, explain the
 two installation commands from the backend error; do not install it without
 authorization.
 
-Before login, tell the user that a visible browser will open and they must
-complete SSO/MFA themselves. Run:
+When this **CLI profile** needs login, tell the user that a visible browser will
+open and they must complete SSO/MFA themselves. Run:
 
 ```bash
 python3 "$SKILL_DIR/oa_fetch.py" --institutional-login

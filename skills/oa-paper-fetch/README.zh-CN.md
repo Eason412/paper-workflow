@@ -36,6 +36,8 @@ python3 oa_fetch.py --url "https://arxiv.org/abs/1706.03762" --format text
 
 OA 候选包括直接 PDF、arXiv、OpenAlex、Unpaywall 和 Semantic Scholar。Unpaywall 可使用本机已配置的 `UNPAYWALL_EMAIL`。
 
+正常下载按来源逐个查询并立即尝试候选，PDF 成功后不再查询后续来源。OpenAlex 和 Unpaywall 的结果优先尝试直接 PDF 地址，再尝试落地页；跳过 OpenAlex 明确标为非开放获取的位置。dry-run 仍收集完整候选证据。
+
 ## 批量清单与身份解析
 
 CSV 使用以下字段；未知信息留空：
@@ -95,6 +97,14 @@ OA 阶段优先执行，未完成且身份符合条件的记录才进入机构�
 
 有效会话可跨运行复用。`--headless` 仅用于复用已有有效会话；首次登录和失效修复使用可见浏览器。缺失会话返回 `profile_missing_login_required`，登录失效返回 `login_refresh_required`。
 
+## 代理协助的浏览器流程
+
+如果 Chrome 已有用户授权的登录，Codex 可使用可用的浏览器控制工具继续在同一会话操作。这与 CLI 的独立 profile 是两种执行模式，二者不转移登录数据。操作细节见[浏览器流程](references/browser-workflow.md)。
+
+批量开始前明确期刊和数量，检查指定本地目录及已有下载记录是否可复用，并完成一篇论文的保存与身份核验。同一出版商由一个代理持有浏览器，其他代理可独立核验文件，避免交接正在使用的标签页。按期刊分目录、复用 CLI 状态之外的 PDF 由代理组织，并非新增 CLI 参数。下载保存完成后再关闭本次创建的页面。
+
+两种机构访问方式均采用至少 4 秒的基础间隔、0–10 秒 jitter，每轮最多尝试 30 次。浏览器流程需显式计数，切换方式不重置本轮计数。
+
 ## 参数偏好与批次控制
 
 非敏感偏好保存在 `~/.oa-paper-fetch/config.json`。优先级为本次显式参数、本地配置、内置默认值。只有用户要求时才保存长期设置：
@@ -142,6 +152,7 @@ python3 oa_fetch.py --batch "/absolute/papers/oa_fetch_pending.csv" --out "/abso
 | `failed` / `pending` | 获取失败 / 需要进一步处理 |
 | `title_resolution_ambiguous` | 候选 DOI 冲突，需补充身份信息 |
 | `title_resolution_unresolved` | 无法确认身份，需补充 DOI、文章 URL 或准确标题 |
+| `not_pdf_browser_download_required` | ScienceDirect 返回 HTML；记为 `failed`，诊断保存在 JSON 的 `institutional.error`，不进入 pending CSV；已有授权时可转正常浏览器 PDF 流程 |
 | `publisher_title_mismatch` | 出版商标题与预期不符 |
 | `publisher_title_unverifiable` | 出版商页面缺少可核验标题 |
 | `profile_missing_login_required` / `login_refresh_required` | 首次登录 / 会话刷新 |
