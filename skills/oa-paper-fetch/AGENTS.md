@@ -45,10 +45,10 @@ Skill 自动触发不扩大依赖安装、偏好保存、访问范围或登录�
 本目录的离线检查：
 
 ```bash
-python3 -m unittest discover -s tests -v
-python3 -m py_compile oa_fetch.py institutional_fetch.py config.py manifest.py store.py
-python3 oa_fetch.py --help
-python3 oa_fetch.py --version
+uv run python -m unittest discover -s tests -v
+uv run python -m py_compile oa_fetch.py institutional_fetch.py config.py manifest.py store.py
+uv run python oa_fetch.py --help
+uv run python oa_fetch.py --version
 git diff --check
 ```
 

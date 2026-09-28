@@ -249,8 +249,8 @@ def _load_playwright():
     except ImportError as exc:  # pragma: no cover - environment dependent
         raise SystemExit(
             "Playwright is required for institutional fetch.\n"
-            "  pip install playwright\n"
-            "  playwright install chromium"
+            "  uv sync  (in the oa-paper-fetch directory)\n"
+            "  uv run python -m playwright install chromium"
         ) from exc
     return sync_playwright
 

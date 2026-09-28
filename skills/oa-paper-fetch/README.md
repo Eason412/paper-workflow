@@ -14,7 +14,7 @@ From the collection root, enter the Skill directory. Run subsequent commands the
 
 ```bash
 cd skills/oa-paper-fetch
-python3 oa_fetch.py --help
+uv run python oa_fetch.py --help
 ```
 
 Example Codex request:
@@ -29,7 +29,7 @@ Codex uses [SKILL.md](SKILL.md) as the canonical workflow and `agents/openai.yam
 ## Open-access acquisition
 
 ```bash
-python3 oa_fetch.py --url "https://arxiv.org/abs/1706.03762" --format text
+uv run python oa_fetch.py --url "https://arxiv.org/abs/1706.03762" --format text
 ```
 
 Successful PDFs and reports are saved to the default directory. Use `--out` for one run or `--save-config` to persist an explicitly requested default.
@@ -51,7 +51,7 @@ ref-002,,10.xxxx/yyyy,
 Replace the absolute path placeholders with actual input and output locations:
 
 ```bash
-python3 oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --format text
+uv run python oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --format text
 ```
 
 Markdown tables and one-item-per-line text are also supported. DOI and URL matches are hard duplicates; matching titles alone remain separate possible duplicates. Repeated input IDs receive collision-free suffixes.
@@ -61,7 +61,7 @@ Title resolution queries arXiv, Crossref, and OpenAlex. Crossref candidate disco
 Offline manifest preflight performs normalization and deduplication only:
 
 ```bash
-python3 oa_fetch.py --batch "/absolute/references.csv" --manifest-out "/absolute/oa_fetch_manifest.csv"
+uv run python oa_fetch.py --batch "/absolute/references.csv" --manifest-out "/absolute/oa_fetch_manifest.csv"
 ```
 
 `--manifest-out` requires `--batch` and makes no metadata or PDF requests.
@@ -90,7 +90,7 @@ The browser persists login state, including browser-managed cookies, in the isol
 ### Entitled institutional acquisition
 
 ```bash
-python3 oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --institutional --format text
+uv run python oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --institutional --format text
 ```
 
 OA runs first. Only unresolved items with eligible identities enter institutional fallback. Supported publishers are IEEE Xplore, Wiley Online Library, and Elsevier ScienceDirect.
@@ -110,7 +110,7 @@ Both institutional routes use a base delay of at least 4 seconds, jitter within 
 Non-sensitive preferences are stored in `~/.oa-paper-fetch/config.json`. Precedence is explicit run arguments, saved preferences, then built-in defaults. Save standing choices only on user request:
 
 ```bash
-python3 oa_fetch.py --institutional --inst-delay 4 --inst-jitter 3 --max-institutional 30 --save-config
+uv run python oa_fetch.py --institutional --inst-delay 4 --inst-jitter 3 --max-institutional 30 --save-config
 ```
 
 Use `--oa-only` to override institutional fallback for one run. Common options follow; see `--help` for the complete interface:
@@ -139,7 +139,7 @@ Filenames follow `year_first-author_full-title_stable-hash.pdf`, retaining an 8-
 `oa_fetch_pending.csv` is generated when explicit continuation is needed. Refresh expired login before resuming; wait for a new continuation request after reaching the cap:
 
 ```bash
-python3 oa_fetch.py --batch "/absolute/papers/oa_fetch_pending.csv" --out "/absolute/papers" --institutional
+uv run python oa_fetch.py --batch "/absolute/papers/oa_fetch_pending.csv" --out "/absolute/papers" --institutional
 ```
 
 Run one job at a time per output directory. Structurally invalid or unsupported-version state files remain unchanged and produce exit `4`, rather than being silently reset.
@@ -170,8 +170,8 @@ Exit codes: `0` success or usable preflight; `1` failed/pending items; `2` inval
 
 ```bash
 uv run pytest -q
-python3 -m py_compile oa_fetch.py institutional_fetch.py config.py manifest.py store.py
-python3 oa_fetch.py --version
+uv run python -m py_compile oa_fetch.py institutional_fetch.py config.py manifest.py store.py
+uv run python oa_fetch.py --version
 ```
 
 Offline tests use temporary directories and mocked responses. Real institutional login and downloads require the user's authorized environment. See [AGENTS.md](AGENTS.md) for maintenance rules and [SKILL.md](SKILL.md) for the download workflow.

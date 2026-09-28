@@ -87,7 +87,7 @@ Resolve `SKILL_DIR` to the absolute directory containing this `SKILL.md`, then
 invoke:
 
 ```bash
-python3 "$SKILL_DIR/oa_fetch.py" ...
+uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" ...
 ```
 
 Resolve input and output paths independently of the current working directory.
@@ -128,7 +128,7 @@ read from an attachment:
 For an offline preflight without metadata queries or downloads, run:
 
 ```bash
-python3 "$SKILL_DIR/oa_fetch.py" \
+uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" \
   --batch "/absolute/raw-references.csv" \
   --manifest-out "/absolute/oa_fetch_manifest.csv"
 ```
@@ -173,13 +173,13 @@ Examples:
 
 ```bash
 # Save a custom default directory and OA item interval.
-python3 "$SKILL_DIR/oa_fetch.py" \
+uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" \
   --out "/absolute/default/Papers" \
   --oa-delay 1 \
   --save-config
 
 # Save institutional fallback as the user's standing choice.
-python3 "$SKILL_DIR/oa_fetch.py" \
+uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" \
   --institutional \
   --inst-delay 4 \
   --inst-jitter 3 \
@@ -202,7 +202,7 @@ When this **CLI profile** needs login, tell the user that a visible browser will
 open and they must complete SSO/MFA themselves. Run:
 
 ```bash
-python3 "$SKILL_DIR/oa_fetch.py" --institutional-login
+uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" --institutional-login
 ```
 
 The command opens IEEE Xplore, ScienceDirect, and Wiley Online Library. Do not
@@ -221,15 +221,15 @@ has already worked; never use it for first login or login repair.
 For one paper, use exactly one selector:
 
 ```bash
-python3 "$SKILL_DIR/oa_fetch.py" --doi "10.xxxx/yyyy" --format text
-python3 "$SKILL_DIR/oa_fetch.py" --title "Exact paper title" --format text
-python3 "$SKILL_DIR/oa_fetch.py" --url "https://arxiv.org/abs/1706.03762" --format text
+uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" --doi "10.xxxx/yyyy" --format text
+uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" --title "Exact paper title" --format text
+uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" --url "https://arxiv.org/abs/1706.03762" --format text
 ```
 
 For multiple papers, use the prepared batch:
 
 ```bash
-python3 "$SKILL_DIR/oa_fetch.py" \
+uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" \
   --batch "/absolute/raw-references.csv" \
   --format text
 ```

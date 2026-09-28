@@ -14,7 +14,7 @@ Skill 安装与总仓库维护见 [Paper Workflow](../../README.md#安装)。本
 
 ```bash
 cd skills/oa-paper-fetch
-python3 oa_fetch.py --help
+uv run python oa_fetch.py --help
 ```
 
 Codex 调用示例：
@@ -29,7 +29,7 @@ Codex 通过 [SKILL.md](SKILL.md) 读取规范工作流，通过 `agents/openai.
 ## OA 文献获取
 
 ```bash
-python3 oa_fetch.py --url "https://arxiv.org/abs/1706.03762" --format text
+uv run python oa_fetch.py --url "https://arxiv.org/abs/1706.03762" --format text
 ```
 
 成功后，PDF 和结果报告保存到默认目录。可使用 `--out` 指定本次输出位置，或通过 `--save-config` 保存用户明确指定的默认位置。
@@ -51,7 +51,7 @@ ref-002,,10.xxxx/yyyy,
 以下绝对路径均为占位符，替换为实际输入和输出路径：
 
 ```bash
-python3 oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --format text
+uv run python oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --format text
 ```
 
 支持 Markdown 表格和逐行纯文本。DOI、URL 为硬去重依据；同标题记录只标记疑似重复，保留各自身份。重复输入 ID 会分配无冲突后缀。
@@ -61,7 +61,7 @@ python3 oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" 
 离线清单预检仅执行规范化与去重：
 
 ```bash
-python3 oa_fetch.py --batch "/absolute/references.csv" --manifest-out "/absolute/oa_fetch_manifest.csv"
+uv run python oa_fetch.py --batch "/absolute/references.csv" --manifest-out "/absolute/oa_fetch_manifest.csv"
 ```
 
 `--manifest-out` 必须与 `--batch` 配合，不发起元数据查询或 PDF 下载。
@@ -90,7 +90,7 @@ uv run python oa_fetch.py --institutional-login
 ### 授权机构获取
 
 ```bash
-python3 oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --institutional --format text
+uv run python oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --institutional --format text
 ```
 
 OA 阶段优先执行，未完成且身份符合条件的记录才进入机构阶段。机构范围固定为 IEEE Xplore、Wiley Online Library 和 Elsevier ScienceDirect。
@@ -110,7 +110,7 @@ OA 阶段优先执行，未完成且身份符合条件的记录才进入机构�
 非敏感偏好保存在 `~/.oa-paper-fetch/config.json`。优先级为本次显式参数、本地配置、内置默认值。只有用户要求时才保存长期设置：
 
 ```bash
-python3 oa_fetch.py --institutional --inst-delay 4 --inst-jitter 3 --max-institutional 30 --save-config
+uv run python oa_fetch.py --institutional --inst-delay 4 --inst-jitter 3 --max-institutional 30 --save-config
 ```
 
 本次仅用 OA 时添加 `--oa-only`。常用参数如下，完整列表见 `--help`：
@@ -139,7 +139,7 @@ python3 oa_fetch.py --institutional --inst-delay 4 --inst-jitter 3 --max-institu
 需要显式继续时生成 `oa_fetch_pending.csv`。登录失效须先刷新会话，批次上限须等待新的继续请求：
 
 ```bash
-python3 oa_fetch.py --batch "/absolute/papers/oa_fetch_pending.csv" --out "/absolute/papers" --institutional
+uv run python oa_fetch.py --batch "/absolute/papers/oa_fetch_pending.csv" --out "/absolute/papers" --institutional
 ```
 
 同一输出目录一次只运行一个任务。结构损坏或版本不受支持的状态文件保留原样并返回退出码 `4`，不静默重置。
@@ -170,8 +170,8 @@ python3 oa_fetch.py --batch "/absolute/papers/oa_fetch_pending.csv" --out "/abso
 
 ```bash
 uv run pytest -q
-python3 -m py_compile oa_fetch.py institutional_fetch.py config.py manifest.py store.py
-python3 oa_fetch.py --version
+uv run python -m py_compile oa_fetch.py institutional_fetch.py config.py manifest.py store.py
+uv run python oa_fetch.py --version
 ```
 
 离线测试使用临时目录和模拟响应；真实机构登录及下载由用户在授权环境完成。开发规则见 [AGENTS.md](AGENTS.md)，下载工作流见 [SKILL.md](SKILL.md)。

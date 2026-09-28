@@ -2,6 +2,7 @@
 # library and needs nothing here.
 #
 # The institutional (SSO) layer needs Playwright + a Chromium build:
-#   pip install -r requirements.txt
-#   playwright install chromium
+#   uv sync
+#   uv run python -m playwright install chromium
+# (pyproject.toml is the source of truth; this file is kept for pip users.)
 playwright>=1.40
