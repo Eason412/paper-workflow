@@ -12,25 +12,28 @@ from offline_support import OfflineTestCase
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import fetch_results
+import oa_resolution
+import oa_sources
 import oa_fetch  # noqa: E402
 
 
 class CliContractTests(OfflineTestCase):
     def test_dry_run_only_accepts_public_url_candidates(self):
         lookups = (
-            mock.patch.object(oa_fetch, "openalex_lookup", return_value={}),
-            mock.patch.object(oa_fetch, "semantic_scholar_lookup", return_value={}),
+            mock.patch.object(oa_sources, "openalex_lookup", return_value={}),
+            mock.patch.object(oa_sources, "semantic_scholar_lookup", return_value={}),
         )
         with TemporaryDirectory() as tmp, lookups[0], lookups[1]:
             output = Path(tmp)
-            safe = oa_fetch.resolve_item(
+            safe = oa_resolution.resolve_item(
                 {"url": "https://example.org/paper.pdf", "id": "safe"},
                 output,
                 timeout=5,
                 overwrite=False,
                 dry_run=True,
             )
-            unsafe = oa_fetch.resolve_item(
+            unsafe = oa_resolution.resolve_item(
                 {"url": "http://127.0.0.1/private.pdf", "id": "unsafe"},
                 output,
                 timeout=5,
@@ -78,7 +81,7 @@ class CliContractTests(OfflineTestCase):
                 ]
                 with (
                     mock.patch.object(sys, "argv", argv),
-                    mock.patch.object(oa_fetch, "resolve_item", return_value=result),
+                    mock.patch.object(oa_resolution, "resolve_item", return_value=result),
                     redirect_stdout(stdout),
                     redirect_stderr(StringIO()),
                 ):
@@ -90,24 +93,24 @@ class CliContractTests(OfflineTestCase):
 
     def test_transport_classification_includes_institutional_read_errors(self):
         self.assertTrue(
-            oa_fetch._result_has_transport_failure(
+            fetch_results._result_has_transport_failure(
                 {"institutional": {"error": "read_OSError"}}
             )
         )
         self.assertTrue(
-            oa_fetch._result_has_transport_failure(
+            fetch_results._result_has_transport_failure(
                 {"institutional": {"error": "landing_guard_error"}}
             )
         )
         for reason in ("http_500", "not_pdf", "unsafe_redirect"):
             with self.subTest(reason=reason):
                 self.assertFalse(
-                    oa_fetch._result_has_transport_failure(
+                    fetch_results._result_has_transport_failure(
                         {"institutional": {"error": reason}}
                     )
                 )
         self.assertFalse(
-            oa_fetch._result_has_transport_failure(
+            fetch_results._result_has_transport_failure(
                 {
                     "success": True,
                     "attempts": [{"result": "network_TimeoutError"}],

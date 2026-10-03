@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import store  # noqa: E402
+import fetch_results
+import oa_resolution
 import oa_fetch  # noqa: E402
 
 
@@ -111,7 +113,7 @@ class StoreResumeTests(OfflineTestCase):
 
             with mock.patch.object(store, "save_state", side_effect=OSError("disk full")):
                 with self.assertRaises(OSError):
-                    oa_fetch._persist_result(
+                    fetch_results._persist_result(
                         state,
                         out,
                         item,
@@ -216,7 +218,7 @@ class StoreResumeTests(OfflineTestCase):
                 "--oa-delay",
                 "0",
             ]
-            with mock.patch.object(oa_fetch, "resolve_item", side_effect=fake_resolve):
+            with mock.patch.object(oa_resolution, "resolve_item", side_effect=fake_resolve):
                 for _ in range(2):
                     with (
                         mock.patch.object(sys, "argv", argv),

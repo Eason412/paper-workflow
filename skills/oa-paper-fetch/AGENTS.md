@@ -6,12 +6,23 @@
 
 | 范围 | 实现 | 相关测试 |
 | --- | --- | --- |
-| CLI、身份解析、OA 与机构编排 | [oa_fetch.py](oa_fetch.py) | [CLI](tests/test_cli_contract.py)、[标题解析](tests/test_title_resolution.py)、[OA 优先](tests/test_oa_first.py) |
+| CLI、参数与总编排 | [oa_fetch.py](oa_fetch.py) | [CLI](tests/test_cli_contract.py)、[配置](tests/test_config.py) |
+| 清单输入 | [fetch_inputs.py](fetch_inputs.py) | [清单](tests/test_manifest.py) |
+| 标识、标题比较与文件命名 | [paper_metadata.py](paper_metadata.py) | [命名](tests/test_filename_metadata.py)、[URL 安全](tests/test_oa_url_safety.py) |
+| OA 传输与重定向边界 | [oa_transport.py](oa_transport.py) | [URL 安全](tests/test_oa_url_safety.py)、[短路 CLI](tests/test_oa_short_circuit_cli.py) |
+| OA 来源查询 | [oa_sources.py](oa_sources.py) | [OA 短路](tests/test_oa_short_circuit.py)、[命名](tests/test_filename_metadata.py) |
+| 多源标题身份确认 | [title_identity.py](title_identity.py) | [标题解析](tests/test_title_resolution.py) |
+| 单篇 OA 解析与候选尝试 | [oa_resolution.py](oa_resolution.py) | [OA 短路](tests/test_oa_short_circuit.py)、[CLI](tests/test_cli_contract.py) |
+| OA 批次与已有文件复用 | [oa_batch.py](oa_batch.py) | [OA 优先](tests/test_oa_first.py)、[恢复](tests/test_store_resume.py) |
+| 机构回退与流式检查点 | [institutional_retry.py](institutional_retry.py) | [OA 优先](tests/test_oa_first.py)、[检查点](tests/test_institutional_checkpoints.py) |
+| 结果、命名迁移与报告 | [fetch_results.py](fetch_results.py) | [恢复](tests/test_store_resume.py)、[回归](tests/test_recovery_regressions.py)、[标题解析](tests/test_title_resolution.py) |
 | 浏览器会话与出版商边界 | [institutional_fetch.py](institutional_fetch.py) | [机构边界](tests/test_institutional_boundaries.py)、[URL 安全](tests/test_oa_url_safety.py) |
 | 清单与稳定身份 | [manifest.py](manifest.py) | [清单](tests/test_manifest.py) |
 | 偏好与依赖 | [config.py](config.py)、[requirements.txt](requirements.txt) | [配置](tests/test_config.py) |
 | 文件、状态与恢复 | [store.py](store.py) | [恢复](tests/test_store_resume.py)、[命名](tests/test_filename_metadata.py)、[回归](tests/test_recovery_regressions.py) |
 | Codex 入口与文档 | [SKILL.md](SKILL.md)、[agents/openai.yaml](agents/openai.yaml) | [入口契约](tests/test_skill_contract.py) |
+
+模块依赖从 CLI 与批次编排流向单篇解析、来源查询、元数据和传输层；底层不导入入口或编排模块。测试替换跨模块函数时，patch 定义该函数的模块，调用方通过模块属性查找，不复制函数绑定。
 
 OA 层保持标准库实现，Playwright 仅用于可选机构访问。命令、配置、状态、依赖或安装方式变化时，同时更新本目录的中英文 README；代理执行行为变化同步 `SKILL.md`。
 

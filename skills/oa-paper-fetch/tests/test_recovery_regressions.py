@@ -16,6 +16,9 @@ sys.path.insert(0, str(ROOT))
 
 import institutional_fetch
 import manifest
+import oa_resolution
+import oa_transport
+import title_identity
 import oa_fetch
 import store
 from test_institutional_boundaries import GuardablePage
@@ -53,7 +56,7 @@ class RecoveryRegressionTests(OfflineTestCase):
                 with (
                     mock.patch.object(sys, "argv", ["oa_fetch.py", "--doi", "10.1000/test", "--oa-only",
                                                    "--out", tmp, "--config", str(out / "config.json")]),
-                    mock.patch.object(oa_fetch, "resolve_item") as resolve,
+                    mock.patch.object(oa_resolution, "resolve_item") as resolve,
                     redirect_stdout(StringIO()), redirect_stderr(stderr),
                 ):
                     self.assertEqual(oa_fetch.main(), 4)
@@ -89,10 +92,10 @@ class RecoveryRegressionTests(OfflineTestCase):
                     mock.patch.object(sys, "argv", ["oa_fetch.py", "--batch", str(batch),
                                                    "--out", tmp, "--institutional",
                                                    "--config", str(out / "config.json")]),
-                    mock.patch.object(oa_fetch, "resolve_title_identity", return_value=evidence),
+                    mock.patch.object(title_identity, "resolve_title_identity", return_value=evidence),
                     mock.patch.object(institutional_fetch, "profile_available", return_value=True),
                     mock.patch.object(institutional_fetch, "fetch_batch") as fetch,
-                    mock.patch.object(oa_fetch, "download_pdf") as download,
+                    mock.patch.object(oa_transport, "download_pdf") as download,
                     redirect_stdout(stdout), redirect_stderr(StringIO()),
                 ):
                     self.assertEqual(oa_fetch.main(), 1)
@@ -125,7 +128,7 @@ class RecoveryRegressionTests(OfflineTestCase):
                 mock.patch.object(sys, "argv", ["oa_fetch.py", "--batch", str(batch), "--out", tmp,
                                                "--institutional", "--max-institutional", "4",
                                                "--oa-delay", "0", "--config", str(out / "config.json")]),
-                mock.patch.object(oa_fetch, "resolve_item", side_effect=lambda item, *args: {
+                mock.patch.object(oa_resolution, "resolve_item", side_effect=lambda item, *args: {
                     "success": False, "error": "no_open_access_pdf_downloaded",
                     "meta": {"doi": item["doi"]}}),
                 mock.patch.object(institutional_fetch, "profile_available", return_value=True),
@@ -153,8 +156,8 @@ class RecoveryRegressionTests(OfflineTestCase):
                         response.__enter__.return_value.read.return_value = data
                         opener = mock.Mock()
                         opener.open.return_value = response
-                        with mock.patch.object(oa_fetch.urllib.request, "build_opener", return_value=opener):
-                            ok, reason = oa_fetch.download_pdf(url, target, 5, False)
+                        with mock.patch.object(oa_transport.urllib.request, "build_opener", return_value=opener):
+                            ok, reason = oa_transport.download_pdf(url, target, 5, False)
                     else:
                         response = SimpleNamespace(status=200, ok=True, url=url, body=lambda: data, dispose=lambda: None)
                         context = mock.Mock()
@@ -252,7 +255,7 @@ class RecoveryRegressionTests(OfflineTestCase):
             context1 = create_context(interrupt_on_second=True)
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item", side_effect=fake_resolve_run1),
+                mock.patch.object(oa_resolution, "resolve_item", side_effect=fake_resolve_run1),
                 mock.patch.object(institutional_fetch, "profile_available", return_value=True),
                 mock.patch.object(institutional_fetch, "_load_playwright", return_value=lambda: mock.MagicMock(__enter__=lambda self: None)),
                 mock.patch.object(institutional_fetch, "_launch", return_value=context1),
@@ -282,7 +285,7 @@ class RecoveryRegressionTests(OfflineTestCase):
             stdout2 = StringIO()
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item", side_effect=fake_resolve_run2),
+                mock.patch.object(oa_resolution, "resolve_item", side_effect=fake_resolve_run2),
                 mock.patch.object(institutional_fetch, "profile_available", return_value=True),
                 mock.patch.object(institutional_fetch, "_load_playwright", return_value=lambda: mock.MagicMock(__enter__=lambda self: None)),
                 mock.patch.object(institutional_fetch, "_launch", return_value=context2),

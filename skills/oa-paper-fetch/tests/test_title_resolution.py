@@ -10,6 +10,11 @@ from offline_support import OfflineTestCase
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import fetch_results
+import oa_resolution
+import oa_sources
+import oa_transport
+import title_identity
 import oa_fetch  # noqa: E402
 
 
@@ -35,7 +40,7 @@ class TitleResolutionTests(OfflineTestCase):
         }
         with TemporaryDirectory() as tmp:
             out = Path(tmp)
-            oa_fetch.write_reports([result], out)
+            fetch_results.write_reports([result], out)
             with (out / "oa_fetch_results.csv").open(encoding="utf-8") as handle:
                 row = next(csv.DictReader(handle))
 
@@ -56,11 +61,11 @@ class TitleResolutionTests(OfflineTestCase):
             "first_author": "Smith",
         }
         with (
-            mock.patch.object(oa_fetch, "arxiv_title_lookup", return_value={}),
-            mock.patch.object(oa_fetch, "crossref_title_to_doi", return_value=crossref),
-            mock.patch.object(oa_fetch, "openalex_lookup", return_value={}),
+            mock.patch.object(oa_sources, "arxiv_title_lookup", return_value={}),
+            mock.patch.object(oa_sources, "crossref_title_to_doi", return_value=crossref),
+            mock.patch.object(oa_sources, "openalex_lookup", return_value={}),
         ):
-            resolution = oa_fetch.resolve_title_identity(
+            resolution = title_identity.resolve_title_identity(
                 "A Reliable Paper Title", timeout=5
             )
 
@@ -82,11 +87,11 @@ class TitleResolutionTests(OfflineTestCase):
             "score": 1.0,
         }
         with (
-            mock.patch.object(oa_fetch, "arxiv_title_lookup", return_value={}),
-            mock.patch.object(oa_fetch, "crossref_title_to_doi", return_value=crossref),
-            mock.patch.object(oa_fetch, "openalex_lookup", return_value=openalex),
+            mock.patch.object(oa_sources, "arxiv_title_lookup", return_value={}),
+            mock.patch.object(oa_sources, "crossref_title_to_doi", return_value=crossref),
+            mock.patch.object(oa_sources, "openalex_lookup", return_value=openalex),
         ):
-            resolution = oa_fetch.resolve_title_identity(title, timeout=5)
+            resolution = title_identity.resolve_title_identity(title, timeout=5)
 
         self.assertEqual(resolution["status"], "confirmed")
         self.assertEqual(resolution["reason"], "exact_title")
@@ -105,11 +110,11 @@ class TitleResolutionTests(OfflineTestCase):
             "score": 0.89,
         }
         with (
-            mock.patch.object(oa_fetch, "arxiv_title_lookup", return_value={}),
-            mock.patch.object(oa_fetch, "crossref_title_to_doi", return_value=crossref),
-            mock.patch.object(oa_fetch, "openalex_lookup", return_value=openalex),
+            mock.patch.object(oa_sources, "arxiv_title_lookup", return_value={}),
+            mock.patch.object(oa_sources, "crossref_title_to_doi", return_value=crossref),
+            mock.patch.object(oa_sources, "openalex_lookup", return_value=openalex),
         ):
-            resolution = oa_fetch.resolve_title_identity(
+            resolution = title_identity.resolve_title_identity(
                 "Robust Learning with Industrial Signals", timeout=5
             )
 
@@ -119,9 +124,9 @@ class TitleResolutionTests(OfflineTestCase):
 
     def test_conflicting_high_confidence_dois_are_ambiguous(self):
         with (
-            mock.patch.object(oa_fetch, "arxiv_title_lookup", return_value={}),
+            mock.patch.object(oa_sources, "arxiv_title_lookup", return_value={}),
             mock.patch.object(
-                oa_fetch,
+                oa_sources,
                 "crossref_title_to_doi",
                 return_value={
                     "doi": "10.1109/one",
@@ -130,7 +135,7 @@ class TitleResolutionTests(OfflineTestCase):
                 },
             ),
             mock.patch.object(
-                oa_fetch,
+                oa_sources,
                 "openalex_lookup",
                 return_value={
                     "doi": "10.1002/two",
@@ -139,7 +144,7 @@ class TitleResolutionTests(OfflineTestCase):
                 },
             ),
         ):
-            resolution = oa_fetch.resolve_title_identity(
+            resolution = title_identity.resolve_title_identity(
                 "The Same Exact Title", timeout=5
             )
 
@@ -155,7 +160,7 @@ class TitleResolutionTests(OfflineTestCase):
         title = "A Shared Preprint and Publisher Title"
         with (
             mock.patch.object(
-                oa_fetch,
+                oa_sources,
                 "arxiv_title_lookup",
                 return_value={
                     "doi": "10.48550/arXiv.2401.00001",
@@ -165,7 +170,7 @@ class TitleResolutionTests(OfflineTestCase):
                 },
             ),
             mock.patch.object(
-                oa_fetch,
+                oa_sources,
                 "crossref_title_to_doi",
                 return_value={
                     "doi": "10.1109/publisher",
@@ -174,7 +179,7 @@ class TitleResolutionTests(OfflineTestCase):
                 },
             ),
             mock.patch.object(
-                oa_fetch,
+                oa_sources,
                 "openalex_lookup",
                 return_value={
                     "doi": "https://doi.org/10.1109/PUBLISHER",
@@ -183,7 +188,7 @@ class TitleResolutionTests(OfflineTestCase):
                 },
             ),
         ):
-            resolution = oa_fetch.resolve_title_identity(title, timeout=5)
+            resolution = title_identity.resolve_title_identity(title, timeout=5)
 
         self.assertEqual(resolution["status"], "confirmed")
         self.assertEqual(resolution["selected_doi"], "10.1109/publisher")
@@ -196,7 +201,7 @@ class TitleResolutionTests(OfflineTestCase):
         title = "A Shared Preprint and Publisher Title"
         with (
             mock.patch.object(
-                oa_fetch,
+                oa_sources,
                 "arxiv_title_lookup",
                 return_value={
                     "doi": "10.48550/arXiv.2401.00001",
@@ -205,7 +210,7 @@ class TitleResolutionTests(OfflineTestCase):
                 },
             ),
             mock.patch.object(
-                oa_fetch,
+                oa_sources,
                 "crossref_title_to_doi",
                 return_value={
                     "doi": "10.1109/publisher",
@@ -213,9 +218,9 @@ class TitleResolutionTests(OfflineTestCase):
                     "score": 1.0,
                 },
             ),
-            mock.patch.object(oa_fetch, "openalex_lookup", return_value={}),
+            mock.patch.object(oa_sources, "openalex_lookup", return_value={}),
         ):
-            resolution = oa_fetch.resolve_title_identity(title, timeout=5)
+            resolution = title_identity.resolve_title_identity(title, timeout=5)
 
         self.assertEqual(resolution["status"], "ambiguous")
         self.assertEqual(resolution["reason"], "conflicting_dois")
@@ -225,7 +230,7 @@ class TitleResolutionTests(OfflineTestCase):
         title = "A Conflicting Publisher Title"
         with (
             mock.patch.object(
-                oa_fetch,
+                oa_sources,
                 "arxiv_title_lookup",
                 return_value={
                     "doi": "10.48550/arXiv.2401.00001",
@@ -234,7 +239,7 @@ class TitleResolutionTests(OfflineTestCase):
                 },
             ),
             mock.patch.object(
-                oa_fetch,
+                oa_sources,
                 "crossref_title_to_doi",
                 return_value={
                     "doi": "10.1109/one",
@@ -243,7 +248,7 @@ class TitleResolutionTests(OfflineTestCase):
                 },
             ),
             mock.patch.object(
-                oa_fetch,
+                oa_sources,
                 "openalex_lookup",
                 return_value={
                     "doi": "10.1002/two",
@@ -252,7 +257,7 @@ class TitleResolutionTests(OfflineTestCase):
                 },
             ),
         ):
-            resolution = oa_fetch.resolve_title_identity(title, timeout=5)
+            resolution = title_identity.resolve_title_identity(title, timeout=5)
 
         self.assertEqual(resolution["status"], "ambiguous")
         self.assertEqual(resolution["reason"], "conflicting_dois")
@@ -260,9 +265,9 @@ class TitleResolutionTests(OfflineTestCase):
 
     def test_single_non_exact_candidate_is_not_enough(self):
         with (
-            mock.patch.object(oa_fetch, "arxiv_title_lookup", return_value={}),
+            mock.patch.object(oa_sources, "arxiv_title_lookup", return_value={}),
             mock.patch.object(
-                oa_fetch,
+                oa_sources,
                 "crossref_title_to_doi",
                 return_value={
                     "doi": "10.1016/example",
@@ -270,9 +275,9 @@ class TitleResolutionTests(OfflineTestCase):
                     "score": 0.94,
                 },
             ),
-            mock.patch.object(oa_fetch, "openalex_lookup", return_value={}),
+            mock.patch.object(oa_sources, "openalex_lookup", return_value={}),
         ):
-            resolution = oa_fetch.resolve_title_identity(
+            resolution = title_identity.resolve_title_identity(
                 "A Similar Article Title", timeout=5
             )
 
@@ -282,11 +287,11 @@ class TitleResolutionTests(OfflineTestCase):
 
     def test_no_title_candidates_is_unresolved(self):
         with (
-            mock.patch.object(oa_fetch, "arxiv_title_lookup", return_value={}),
-            mock.patch.object(oa_fetch, "crossref_title_to_doi", return_value={}),
-            mock.patch.object(oa_fetch, "openalex_lookup", return_value={}),
+            mock.patch.object(oa_sources, "arxiv_title_lookup", return_value={}),
+            mock.patch.object(oa_sources, "crossref_title_to_doi", return_value={}),
+            mock.patch.object(oa_sources, "openalex_lookup", return_value={}),
         ):
-            resolution = oa_fetch.resolve_title_identity(
+            resolution = title_identity.resolve_title_identity(
                 "A Title Missing From Every Index", timeout=5
             )
 
@@ -322,13 +327,13 @@ class TitleResolutionTests(OfflineTestCase):
         with (
             TemporaryDirectory() as tmp,
             mock.patch.object(
-                oa_fetch, "resolve_title_identity", return_value=resolution
+                title_identity, "resolve_title_identity", return_value=resolution
             ),
-            mock.patch.object(oa_fetch, "openalex_lookup", return_value={}),
-            mock.patch.object(oa_fetch, "unpaywall_lookup", return_value={}),
-            mock.patch.object(oa_fetch, "semantic_scholar_lookup", return_value={}),
+            mock.patch.object(oa_sources, "openalex_lookup", return_value={}),
+            mock.patch.object(oa_sources, "unpaywall_lookup", return_value={}),
+            mock.patch.object(oa_sources, "semantic_scholar_lookup", return_value={}),
         ):
-            result = oa_fetch.resolve_item(
+            result = oa_resolution.resolve_item(
                 item, Path(tmp), 5, False, False
             )
 
@@ -372,14 +377,14 @@ class TitleResolutionTests(OfflineTestCase):
         with (
             TemporaryDirectory() as tmp,
             mock.patch.object(
-                oa_fetch, "resolve_title_identity", return_value=resolution
+                title_identity, "resolve_title_identity", return_value=resolution
             ),
-            mock.patch.object(oa_fetch, "download_pdf", return_value=(True, "downloaded")) as download_pdf,
-            mock.patch.object(oa_fetch, "openalex_lookup", return_value={}),
-            mock.patch.object(oa_fetch, "unpaywall_lookup", return_value={}),
-            mock.patch.object(oa_fetch, "semantic_scholar_lookup", return_value={}),
+            mock.patch.object(oa_transport, "download_pdf", return_value=(True, "downloaded")) as download_pdf,
+            mock.patch.object(oa_sources, "openalex_lookup", return_value={}),
+            mock.patch.object(oa_sources, "unpaywall_lookup", return_value={}),
+            mock.patch.object(oa_sources, "semantic_scholar_lookup", return_value={}),
         ):
-            result = oa_fetch.resolve_item(
+            result = oa_resolution.resolve_item(
                 item, Path(tmp), 5, False, False
             )
 
@@ -421,11 +426,11 @@ class TitleResolutionTests(OfflineTestCase):
         with (
             TemporaryDirectory() as tmp,
             mock.patch.object(
-                oa_fetch, "resolve_title_identity", return_value=resolution
+                title_identity, "resolve_title_identity", return_value=resolution
             ),
-            mock.patch.object(oa_fetch, "download_pdf") as download_pdf,
+            mock.patch.object(oa_transport, "download_pdf") as download_pdf,
         ):
-            result = oa_fetch.resolve_item(
+            result = oa_resolution.resolve_item(
                 item, Path(tmp), 5, False, False
             )
 

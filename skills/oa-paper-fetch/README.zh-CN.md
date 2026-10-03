@@ -8,7 +8,7 @@
 
 ## 安装与入口
 
-Skill 安装见 [Paper Workflow 安装手册](../../SETUP.md)，总仓库维护见 [Paper Workflow](../../README.md)。本目录为独立安装单元，需保留五个 Python 模块及配套资源。
+Skill 安装见 [Paper Workflow 安装手册](../../SETUP.md)，总仓库维护见 [Paper Workflow](../../README.md)。本目录为独立安装单元，需保留全部 Python 模块及配套资源。`oa_fetch.py` 仍为 CLI 入口；元数据、传输、来源查询、身份确认、获取编排和报告按职责分模块。文件布局见[源码与测试导航](AGENTS.md#源码与测试导航)。
 
 从总仓库根目录进入后，后续命令均在本 Skill 目录执行：
 

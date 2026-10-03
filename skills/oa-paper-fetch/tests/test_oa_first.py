@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import institutional_fetch  # noqa: E402
+import oa_resolution
+import paper_metadata
 import oa_fetch  # noqa: E402
 
 
@@ -56,7 +58,7 @@ class OaFirstTests(OfflineTestCase):
             ]
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item", side_effect=fake_resolve),
+                mock.patch.object(oa_resolution, "resolve_item", side_effect=fake_resolve),
                 mock.patch.object(institutional_fetch, "fetch_batch", side_effect=fake_fetch_batch),
                 redirect_stdout(StringIO()),
                 redirect_stderr(StringIO()),
@@ -119,7 +121,7 @@ class OaFirstTests(OfflineTestCase):
             stdout = StringIO()
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item", return_value=failure),
+                mock.patch.object(oa_resolution, "resolve_item", return_value=failure),
                 mock.patch.object(institutional_fetch, "fetch_batch", side_effect=fake_fetch),
                 redirect_stdout(stdout),
                 redirect_stderr(StringIO()),
@@ -129,7 +131,7 @@ class OaFirstTests(OfflineTestCase):
             payload = __import__("json").loads(stdout.getvalue())
             result = payload["results"][0]
             final_path = Path(result["file"])
-            expected_name = oa_fetch.metadata_filename(
+            expected_name = paper_metadata.metadata_filename(
                 page_meta,
                 page_meta["title"],
                 "doi:10.1109/example",
@@ -201,7 +203,7 @@ class OaFirstTests(OfflineTestCase):
             stdout = StringIO()
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item", return_value=failure),
+                mock.patch.object(oa_resolution, "resolve_item", return_value=failure),
                 mock.patch.object(
                     institutional_fetch, "fetch_batch", side_effect=fake_fetch
                 ),
@@ -276,7 +278,7 @@ class OaFirstTests(OfflineTestCase):
             stdout = StringIO()
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item", return_value=failure),
+                mock.patch.object(oa_resolution, "resolve_item", return_value=failure),
                 mock.patch.object(
                     institutional_fetch, "fetch_batch", side_effect=fake_fetch
                 ),
@@ -320,7 +322,7 @@ class OaFirstTests(OfflineTestCase):
             }
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item", return_value=result),
+                mock.patch.object(oa_resolution, "resolve_item", return_value=result),
                 mock.patch.object(institutional_fetch, "fetch_batch") as fetch_batch,
                 redirect_stdout(StringIO()),
                 redirect_stderr(StringIO()),
@@ -361,7 +363,7 @@ class OaFirstTests(OfflineTestCase):
             }
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item", return_value=result),
+                mock.patch.object(oa_resolution, "resolve_item", return_value=result),
                 redirect_stdout(StringIO()),
                 redirect_stderr(StringIO()),
             ):
@@ -397,7 +399,7 @@ class OaFirstTests(OfflineTestCase):
             stdout = StringIO()
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item", return_value=result),
+                mock.patch.object(oa_resolution, "resolve_item", return_value=result),
                 mock.patch.object(institutional_fetch, "fetch_batch") as fetch_batch,
                 redirect_stdout(stdout),
                 redirect_stderr(StringIO()),
@@ -449,7 +451,7 @@ class OaFirstTests(OfflineTestCase):
             stdout = StringIO()
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item", return_value=oa_result),
+                mock.patch.object(oa_resolution, "resolve_item", return_value=oa_result),
                 mock.patch.object(
                     institutional_fetch,
                     "fetch_batch",
@@ -496,8 +498,8 @@ class OaFirstTests(OfflineTestCase):
             }
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item", return_value=result),
-                mock.patch.object(oa_fetch.time, "sleep") as sleep,
+                mock.patch.object(oa_resolution, "resolve_item", return_value=result),
+                mock.patch.object(oa_resolution.time, "sleep") as sleep,
                 redirect_stdout(StringIO()),
                 redirect_stderr(StringIO()),
             ):
@@ -543,7 +545,7 @@ class OaFirstTests(OfflineTestCase):
 
             with (
                 mock.patch.object(sys, "argv", base_argv),
-                mock.patch.object(oa_fetch, "resolve_item", return_value=result),
+                mock.patch.object(oa_resolution, "resolve_item", return_value=result),
                 mock.patch.object(institutional_fetch, "fetch_batch", return_value=[]) as enabled,
                 redirect_stdout(StringIO()),
                 redirect_stderr(StringIO()),
@@ -551,7 +553,7 @@ class OaFirstTests(OfflineTestCase):
                 self.assertEqual(oa_fetch.main(), 1)
             with (
                 mock.patch.object(sys, "argv", [*base_argv, "--oa-only"]),
-                mock.patch.object(oa_fetch, "resolve_item", return_value=result),
+                mock.patch.object(oa_resolution, "resolve_item", return_value=result),
                 mock.patch.object(institutional_fetch, "fetch_batch") as disabled,
                 redirect_stdout(StringIO()),
                 redirect_stderr(StringIO()),
@@ -607,7 +609,7 @@ class OaFirstTests(OfflineTestCase):
             stdout = StringIO()
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item", return_value=oa_failure),
+                mock.patch.object(oa_resolution, "resolve_item", return_value=oa_failure),
                 mock.patch.object(institutional_fetch, "fetch_batch", side_effect=fake_fetch),
                 redirect_stdout(stdout),
                 redirect_stderr(StringIO()),

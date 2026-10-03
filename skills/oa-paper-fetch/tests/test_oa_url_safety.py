@@ -13,6 +13,11 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import fetch_results
+import oa_resolution
+import oa_sources
+import oa_transport
+import paper_metadata
 import oa_fetch  # noqa: E402
 
 
@@ -30,14 +35,14 @@ class OaUrlSafetyTests(OfflineTestCase):
             "authors": [{"name": ""}],
         }
 
-        with mock.patch.object(oa_fetch, "request_json", return_value=openalex_response):
-            openalex = oa_fetch.openalex_lookup("10.1000/example", None, 5)
+        with mock.patch.object(oa_transport, "request_json", return_value=openalex_response):
+            openalex = oa_sources.openalex_lookup("10.1000/example", None, 5)
         with mock.patch.object(
-            oa_fetch,
+            oa_transport,
             "request_json",
             return_value=semantic_scholar_response,
         ):
-            semantic_scholar = oa_fetch.semantic_scholar_lookup("10.1000/example", 5)
+            semantic_scholar = oa_sources.semantic_scholar_lookup("10.1000/example", 5)
 
         self.assertIsNone(openalex["first_author"])
         self.assertIsNone(semantic_scholar["first_author"])
@@ -59,9 +64,9 @@ class OaUrlSafetyTests(OfflineTestCase):
         )
         for url in rejected:
             with self.subTest(url=url):
-                self.assertFalse(oa_fetch.safe_url(url))
+                self.assertFalse(oa_transport.safe_url(url))
 
-        self.assertTrue(oa_fetch.safe_url("https://example.org/paper.pdf"))
+        self.assertTrue(oa_transport.safe_url("https://example.org/paper.pdf"))
 
     def test_crossref_title_match_requires_the_documented_strong_threshold(self):
         response = {
@@ -76,19 +81,19 @@ class OaUrlSafetyTests(OfflineTestCase):
                 ]
             }
         }
-        with mock.patch.object(oa_fetch, "request_json", return_value=response):
-            with mock.patch.object(oa_fetch, "title_score", return_value=0.61):
-                self.assertIsNone(oa_fetch.crossref_title_to_doi("Original", 5))
-            with mock.patch.object(oa_fetch, "title_score", return_value=0.62):
+        with mock.patch.object(oa_transport, "request_json", return_value=response):
+            with mock.patch.object(paper_metadata, "title_score", return_value=0.61):
+                self.assertIsNone(oa_sources.crossref_title_to_doi("Original", 5))
+            with mock.patch.object(paper_metadata, "title_score", return_value=0.62):
                 self.assertEqual(
-                    oa_fetch.crossref_title_to_doi("Original", 5)["doi"],
+                    oa_sources.crossref_title_to_doi("Original", 5)["doi"],
                     "10.1000/candidate",
                 )
 
     def test_redirect_handler_rejects_unsafe_target(self):
-        handler = oa_fetch.SafeRedirectHandler()
+        handler = oa_transport.SafeRedirectHandler()
         request = urllib.request.Request("https://example.org/paper.pdf")
-        with self.assertRaises(oa_fetch.UnsafeRedirectError):
+        with self.assertRaises(oa_transport.UnsafeRedirectError):
             handler.redirect_request(
                 request,
                 None,
@@ -101,12 +106,12 @@ class OaUrlSafetyTests(OfflineTestCase):
     def test_download_reports_unsafe_redirect_as_a_policy_failure(self):
         class Opener:
             def open(self, request, timeout):
-                raise oa_fetch.UnsafeRedirectError("http://127.0.0.1/private.pdf")
+                raise oa_transport.UnsafeRedirectError("http://127.0.0.1/private.pdf")
 
         with TemporaryDirectory() as tmp:
             dest = Path(tmp) / "paper.pdf"
             with mock.patch.object(urllib.request, "build_opener", return_value=Opener()):
-                ok, reason = oa_fetch.download_pdf(
+                ok, reason = oa_transport.download_pdf(
                     "https://example.org/paper.pdf",
                     dest,
                     timeout=5,
@@ -154,8 +159,8 @@ class OaUrlSafetyTests(OfflineTestCase):
             }
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item", return_value=result),
-                mock.patch.object(oa_fetch, "write_reports", side_effect=OSError("disk full")),
+                mock.patch.object(oa_resolution, "resolve_item", return_value=result),
+                mock.patch.object(fetch_results, "write_reports", side_effect=OSError("disk full")),
                 redirect_stderr(StringIO()),
             ):
                 exit_code = oa_fetch.main()

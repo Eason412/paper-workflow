@@ -10,6 +10,10 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import oa_resolution
+import oa_sources
+import oa_transport
+import paper_metadata
 import oa_fetch  # noqa: E402
 
 
@@ -31,13 +35,13 @@ class OaShortCircuitTests(OfflineTestCase):
         with TemporaryDirectory() as tmp:
             with (
                 mock.patch.object(
-                    oa_fetch, "download_pdf", return_value=(True, "downloaded")
+                    oa_transport, "download_pdf", return_value=(True, "downloaded")
                 ) as download_pdf,
-                mock.patch.object(oa_fetch, "openalex_lookup") as openalex,
-                mock.patch.object(oa_fetch, "unpaywall_lookup") as unpaywall,
-                mock.patch.object(oa_fetch, "semantic_scholar_lookup") as semantic,
+                mock.patch.object(oa_sources, "openalex_lookup") as openalex,
+                mock.patch.object(oa_sources, "unpaywall_lookup") as unpaywall,
+                mock.patch.object(oa_sources, "semantic_scholar_lookup") as semantic,
             ):
-                result = oa_fetch.resolve_item(
+                result = oa_resolution.resolve_item(
                     self._item(url=direct_url), Path(tmp), 5, False, False
                 )
 
@@ -60,21 +64,21 @@ class OaShortCircuitTests(OfflineTestCase):
         with TemporaryDirectory() as tmp:
             out_dir = Path(tmp)
             with (
-                mock.patch.object(oa_fetch, "openalex_lookup", return_value=found) as openalex,
-                mock.patch.object(oa_fetch, "unpaywall_lookup") as unpaywall,
-                mock.patch.object(oa_fetch, "semantic_scholar_lookup") as semantic,
+                mock.patch.object(oa_sources, "openalex_lookup", return_value=found) as openalex,
+                mock.patch.object(oa_sources, "unpaywall_lookup") as unpaywall,
+                mock.patch.object(oa_sources, "semantic_scholar_lookup") as semantic,
                 mock.patch.object(
-                    oa_fetch, "download_pdf", return_value=(True, "downloaded")
+                    oa_transport, "download_pdf", return_value=(True, "downloaded")
                 ) as download_pdf,
             ):
-                result = oa_fetch.resolve_item(
+                result = oa_resolution.resolve_item(
                     self._item(), out_dir, 5, False, False
                 )
 
         self.assertTrue(result["success"])
         self.assertEqual(result["source"], "openalex")
         self.assertEqual(result["meta"]["title"], found["title"])
-        expected_file = out_dir / oa_fetch.metadata_filename(
+        expected_file = out_dir / paper_metadata.metadata_filename(
             result["meta"], found["title"], "doi:10.1000/example"
         )
         self.assertEqual(Path(result["file"]), expected_file)
@@ -99,16 +103,16 @@ class OaShortCircuitTests(OfflineTestCase):
         with TemporaryDirectory() as tmp:
             with (
                 mock.patch.object(
-                    oa_fetch, "openalex_lookup", return_value=openalex_found
+                    oa_sources, "openalex_lookup", return_value=openalex_found
                 ) as openalex,
                 mock.patch.object(
-                    oa_fetch, "unpaywall_lookup", return_value=unpaywall_found
+                    oa_sources, "unpaywall_lookup", return_value=unpaywall_found
                 ) as unpaywall,
-                mock.patch.object(oa_fetch, "semantic_scholar_lookup") as semantic,
-                mock.patch.object(oa_fetch, "download_pdf", side_effect=download) as download_pdf,
-                mock.patch.object(oa_fetch.time, "sleep"),
+                mock.patch.object(oa_sources, "semantic_scholar_lookup") as semantic,
+                mock.patch.object(oa_transport, "download_pdf", side_effect=download) as download_pdf,
+                mock.patch.object(oa_resolution.time, "sleep"),
             ):
-                result = oa_fetch.resolve_item(
+                result = oa_resolution.resolve_item(
                     self._item(), Path(tmp), 5, False, False
                 )
 
@@ -141,20 +145,20 @@ class OaShortCircuitTests(OfflineTestCase):
         with TemporaryDirectory() as tmp:
             with (
                 mock.patch.object(
-                    oa_fetch, "openalex_lookup", return_value={"urls": [openalex_url]}
+                    oa_sources, "openalex_lookup", return_value={"urls": [openalex_url]}
                 ) as openalex,
                 mock.patch.object(
-                    oa_fetch, "unpaywall_lookup", return_value={"urls": [unpaywall_url]}
+                    oa_sources, "unpaywall_lookup", return_value={"urls": [unpaywall_url]}
                 ) as unpaywall,
                 mock.patch.object(
-                    oa_fetch,
+                    oa_sources,
                     "semantic_scholar_lookup",
                     return_value={"urls": [semantic_url]},
                 ) as semantic,
-                mock.patch.object(oa_fetch, "download_pdf", side_effect=download) as download_pdf,
-                mock.patch.object(oa_fetch.time, "sleep"),
+                mock.patch.object(oa_transport, "download_pdf", side_effect=download) as download_pdf,
+                mock.patch.object(oa_resolution.time, "sleep"),
             ):
-                result = oa_fetch.resolve_item(
+                result = oa_resolution.resolve_item(
                     self._item(), Path(tmp), 5, False, False
                 )
 
@@ -185,23 +189,23 @@ class OaShortCircuitTests(OfflineTestCase):
             out_dir = Path(tmp) / "out"
             with (
                 mock.patch.object(
-                    oa_fetch,
+                    oa_sources,
                     "openalex_lookup",
                     return_value={"title": "Dry Run Title", "urls": [shared_url, openalex_url]},
                 ) as openalex,
                 mock.patch.object(
-                    oa_fetch,
+                    oa_sources,
                     "unpaywall_lookup",
                     return_value={"urls": [shared_url, unpaywall_url]},
                 ) as unpaywall,
                 mock.patch.object(
-                    oa_fetch,
+                    oa_sources,
                     "semantic_scholar_lookup",
                     return_value={"urls": [unpaywall_url, semantic_url]},
                 ) as semantic,
-                mock.patch.object(oa_fetch, "download_pdf") as download_pdf,
+                mock.patch.object(oa_transport, "download_pdf") as download_pdf,
             ):
-                result = oa_fetch.resolve_item(
+                result = oa_resolution.resolve_item(
                     self._item(), out_dir, 5, False, True
                 )
             self.assertFalse(out_dir.exists())
@@ -233,14 +237,14 @@ class OaShortCircuitTests(OfflineTestCase):
         with TemporaryDirectory() as tmp:
             out_dir = Path(tmp)
             with (
-                mock.patch.object(oa_fetch, "openalex_lookup", return_value=found),
-                mock.patch.object(oa_fetch, "unpaywall_lookup") as unpaywall,
-                mock.patch.object(oa_fetch, "semantic_scholar_lookup") as semantic,
+                mock.patch.object(oa_sources, "openalex_lookup", return_value=found),
+                mock.patch.object(oa_sources, "unpaywall_lookup") as unpaywall,
+                mock.patch.object(oa_sources, "semantic_scholar_lookup") as semantic,
                 mock.patch.object(
-                    oa_fetch, "download_pdf", return_value=(True, "exists")
+                    oa_transport, "download_pdf", return_value=(True, "exists")
                 ) as download_pdf,
             ):
-                result = oa_fetch.resolve_item(
+                result = oa_resolution.resolve_item(
                     self._item(state_filename=state_filename),
                     out_dir,
                     5,
@@ -276,8 +280,8 @@ class OaShortCircuitTests(OfflineTestCase):
                 "landing_page_url": "https://publisher.example/paywall",
             },
         }
-        with mock.patch.object(oa_fetch, "request_json", return_value=closed) as request_json:
-            result = oa_fetch.openalex_lookup("10.1000/example", None, 5)
+        with mock.patch.object(oa_transport, "request_json", return_value=closed) as request_json:
+            result = oa_sources.openalex_lookup("10.1000/example", None, 5)
 
         self.assertEqual(result["urls"], [])
         request_json.assert_called_once()
@@ -301,8 +305,8 @@ class OaShortCircuitTests(OfflineTestCase):
                 "landing_page_url": "https://publisher.example/primary",
             },
         }
-        with mock.patch.object(oa_fetch, "request_json", return_value=response):
-            result = oa_fetch.openalex_lookup("10.1000/example", None, 5)
+        with mock.patch.object(oa_transport, "request_json", return_value=response):
+            result = oa_sources.openalex_lookup("10.1000/example", None, 5)
 
         self.assertEqual(
             result["urls"],
@@ -333,9 +337,9 @@ class OaShortCircuitTests(OfflineTestCase):
         }
         with (
             mock.patch.dict(os.environ, {"UNPAYWALL_EMAIL": "test@example.org"}),
-            mock.patch.object(oa_fetch, "request_json", return_value=response),
+            mock.patch.object(oa_transport, "request_json", return_value=response),
         ):
-            result = oa_fetch.unpaywall_lookup("10.1000/example", 5)
+            result = oa_sources.unpaywall_lookup("10.1000/example", 5)
 
         self.assertEqual(
             result["urls"],

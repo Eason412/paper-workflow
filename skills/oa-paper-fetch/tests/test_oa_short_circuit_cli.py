@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import institutional_fetch  # noqa: E402
+import oa_sources
+import oa_transport
 import oa_fetch  # noqa: E402
 import store  # noqa: E402
 
@@ -49,11 +51,11 @@ class ShortCircuitCliTests(OfflineTestCase):
         pdf = b"%PDF-1.7\noffline fixture"
         with (
             TemporaryDirectory() as tmp,
-            mock.patch.object(oa_fetch, "request_json", return_value=metadata) as query,
-            mock.patch.object(oa_fetch, "unpaywall_lookup") as unpaywall,
-            mock.patch.object(oa_fetch, "semantic_scholar_lookup") as scholar,
+            mock.patch.object(oa_transport, "request_json", return_value=metadata) as query,
+            mock.patch.object(oa_sources, "unpaywall_lookup") as unpaywall,
+            mock.patch.object(oa_sources, "semantic_scholar_lookup") as scholar,
             mock.patch.object(institutional_fetch, "fetch_batch") as institutional,
-            mock.patch.object(oa_fetch.urllib.request, "build_opener") as opener,
+            mock.patch.object(oa_transport.urllib.request, "build_opener") as opener,
         ):
             root = Path(tmp)
             opener.return_value.open.return_value = BytesIO(pdf)
@@ -88,16 +90,16 @@ class ShortCircuitCliTests(OfflineTestCase):
     def test_dry_run_reports_all_sources_without_pdf_state_or_institutional(self):
         with (
             TemporaryDirectory() as tmp,
-            mock.patch.object(oa_fetch, "openalex_lookup", return_value={
+            mock.patch.object(oa_sources, "openalex_lookup", return_value={
                 "title": "Short Circuit Paper", "urls": [self.PDF_URL],
             }) as openalex,
-            mock.patch.object(oa_fetch, "unpaywall_lookup", return_value={
+            mock.patch.object(oa_sources, "unpaywall_lookup", return_value={
                 "urls": ["https://example.org/repository.pdf"],
             }) as unpaywall,
-            mock.patch.object(oa_fetch, "semantic_scholar_lookup", return_value={
+            mock.patch.object(oa_sources, "semantic_scholar_lookup", return_value={
                 "urls": ["https://example.org/author.pdf"],
             }) as scholar,
-            mock.patch.object(oa_fetch.urllib.request, "build_opener") as opener,
+            mock.patch.object(oa_transport.urllib.request, "build_opener") as opener,
             mock.patch.object(institutional_fetch, "fetch_batch") as institutional,
         ):
             root = Path(tmp)

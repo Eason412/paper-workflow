@@ -12,6 +12,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import institutional_fetch as inst
+import oa_resolution
 import oa_fetch
 import store
 
@@ -41,7 +42,7 @@ class CheckpointTests(OfflineTestCase):
             argv = ["oa_fetch.py", "--batch", str(source), "--out", str(output),
                     "--config", str(root / "preferences.json"), "--institutional", "--oa-delay", "0"]
             with (mock.patch.object(sys, "argv", argv),
-                  mock.patch.object(oa_fetch, "resolve_item", side_effect=lambda item, *a: {
+                  mock.patch.object(oa_resolution, "resolve_item", side_effect=lambda item, *a: {
                       "success": False, "error": "no_open_access_pdf_downloaded", "meta": {"doi": item["doi"]}}),
                   mock.patch.object(inst, "profile_available", return_value=True),
                   mock.patch.object(inst, "_load_playwright", return_value=lambda: nullcontext(object())),

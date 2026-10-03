@@ -15,6 +15,10 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import oa_resolution
+import oa_sources
+import oa_transport
+import paper_metadata
 import oa_fetch  # noqa: E402
 import store  # noqa: E402
 
@@ -37,7 +41,7 @@ ARXIV_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
 
 class FilenameMetadataTests(OfflineTestCase):
     def test_noncanonical_metadata_filename_respects_utf8_byte_limit(self):
-        filename = oa_fetch.metadata_filename(
+        filename = paper_metadata.metadata_filename(
             {"year": 2026, "first_author": "张", "title": "论文" * 200},
             "paper",
         )
@@ -56,12 +60,12 @@ class FilenameMetadataTests(OfflineTestCase):
         }
         for value, expected in cases.items():
             with self.subTest(value=value):
-                self.assertEqual(oa_fetch.extract_arxiv_id(value), expected)
+                self.assertEqual(paper_metadata.extract_arxiv_id(value), expected)
 
     def test_arxiv_id_lookup_parses_authoritative_atom_metadata(self):
         root = ET.fromstring(ARXIV_XML)
-        with mock.patch.object(oa_fetch, "_request_arxiv_feed", return_value=root):
-            meta = oa_fetch.arxiv_id_lookup("1810.04805", 5)
+        with mock.patch.object(oa_transport, "_request_arxiv_feed", return_value=root):
+            meta = oa_sources.arxiv_id_lookup("1810.04805", 5)
 
         self.assertEqual(
             meta["title"],
@@ -88,8 +92,8 @@ class FilenameMetadataTests(OfflineTestCase):
             "urls": ["https://arxiv.org/pdf/1810.04805v2.pdf"],
             "score": 1.0,
         }
-        with TemporaryDirectory() as tmp, mock.patch.object(oa_fetch, "arxiv_id_lookup", return_value=meta):
-            result = oa_fetch.resolve_item(item, Path(tmp), 5, False, True)
+        with TemporaryDirectory() as tmp, mock.patch.object(oa_sources, "arxiv_id_lookup", return_value=meta):
+            result = oa_resolution.resolve_item(item, Path(tmp), 5, False, True)
 
         filename = Path(result["file"]).name
         self.assertTrue(filename.startswith("2018_Devlin_BERT_Pre-training"))
@@ -111,8 +115,8 @@ class FilenameMetadataTests(OfflineTestCase):
             "urls": ["https://arxiv.org/pdf/1810.04805v2.pdf"],
             "score": 1.0,
         }
-        with TemporaryDirectory() as tmp, mock.patch.object(oa_fetch, "arxiv_id_lookup", return_value=meta):
-            result = oa_fetch.resolve_item(item, Path(tmp), 5, False, True)
+        with TemporaryDirectory() as tmp, mock.patch.object(oa_sources, "arxiv_id_lookup", return_value=meta):
+            result = oa_resolution.resolve_item(item, Path(tmp), 5, False, True)
 
         self.assertEqual(result["meta"]["title"], meta["title"])
         self.assertIn("BERT_Pre-training", Path(result["file"]).name)
@@ -123,8 +127,8 @@ class FilenameMetadataTests(OfflineTestCase):
             "url": "https://arxiv.org/abs/1810.04805",
             "canonical_id": "url:https://arxiv.org/abs/1810.04805",
         }
-        with TemporaryDirectory() as tmp, mock.patch.object(oa_fetch, "arxiv_id_lookup", return_value={}):
-            result = oa_fetch.resolve_item(item, Path(tmp), 5, False, True)
+        with TemporaryDirectory() as tmp, mock.patch.object(oa_sources, "arxiv_id_lookup", return_value={}):
+            result = oa_resolution.resolve_item(item, Path(tmp), 5, False, True)
 
         self.assertTrue(result["success"])
         self.assertIn("arXiv_1810.04805", Path(result["file"]).name)
@@ -178,8 +182,8 @@ class FilenameMetadataTests(OfflineTestCase):
             stdout = StringIO()
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "arxiv_id_lookup", return_value=meta),
-                mock.patch.object(oa_fetch, "download_pdf") as download_pdf,
+                mock.patch.object(oa_sources, "arxiv_id_lookup", return_value=meta),
+                mock.patch.object(oa_transport, "download_pdf") as download_pdf,
                 redirect_stdout(stdout),
                 redirect_stderr(StringIO()),
             ):
@@ -208,7 +212,7 @@ class FilenameMetadataTests(OfflineTestCase):
             with (
                 mock.patch.object(sys, "argv", argv),
                 mock.patch.object(
-                    oa_fetch,
+                    oa_resolution,
                     "resolve_item",
                     side_effect=AssertionError("resume must not query metadata again"),
                 ),
@@ -269,8 +273,8 @@ class FilenameMetadataTests(OfflineTestCase):
             stdout = StringIO()
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "arxiv_id_lookup", return_value=meta),
-                mock.patch.object(oa_fetch, "download_pdf", side_effect=fake_download),
+                mock.patch.object(oa_sources, "arxiv_id_lookup", return_value=meta),
+                mock.patch.object(oa_transport, "download_pdf", side_effect=fake_download),
                 redirect_stdout(stdout),
                 redirect_stderr(StringIO()),
             ):

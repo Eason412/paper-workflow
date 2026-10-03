@@ -8,7 +8,7 @@ The default output is `~/Desktop/Papers`. CLI version: `0.5.0`. The standalone O
 
 ## Installation and entrypoints
 
-See the [Paper Workflow setup manual](../../SETUP.md) for installation and [Paper Workflow](../../README.en.md) for shared maintenance. This directory is the complete Skill unit; retain all five Python modules and supporting resources.
+See the [Paper Workflow setup manual](../../SETUP.md) for installation and [Paper Workflow](../../README.en.md) for shared maintenance. This directory is the complete Skill unit; retain all Python modules and supporting resources. `oa_fetch.py` remains the CLI entrypoint; metadata, transport, source queries, identity resolution, acquisition, and reporting live in responsibility-specific modules. See the [source and test navigation](AGENTS.md#源码与测试导航) for the file layout.
 
 From the collection root, enter the Skill directory. Run subsequent commands there:
 

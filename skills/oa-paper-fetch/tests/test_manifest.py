@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import manifest  # noqa: E402
+import oa_resolution
 import oa_fetch  # noqa: E402
 
 
@@ -139,7 +140,7 @@ class ManifestTests(OfflineTestCase):
             ]
             with (
                 mock.patch.object(sys, "argv", argv),
-                mock.patch.object(oa_fetch, "resolve_item") as resolver,
+                mock.patch.object(oa_resolution, "resolve_item") as resolver,
                 redirect_stdout(stdout),
             ):
                 exit_code = oa_fetch.main()
