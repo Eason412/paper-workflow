@@ -4,6 +4,8 @@
 
 **从文献获取到课程报告和论文数据图，按学术任务独立选用 Skill。** 本仓库收录 `oa-paper-fetch`、`course-report` 和 `paper-figure` 三个学术类 Agent Skill。Skill 是以 `SKILL.md` 定义的任务规范，可附带脚本、模板和参考资料。
 
+当前版本：[V0.1.0](https://github.com/Eason412/paper-workflow/releases/tag/V0.1.0)（[全部版本与更新说明](https://github.com/Eason412/paper-workflow/releases)）。
+
 > ⚠️ 各 Skill 的依赖按任务准备；机构全文获取需要已有访问权限，登录与验证由用户本人完成。文献获取不用于 Sci-Hub 或绕过付费墙。
 
 写作与文档类 Skill 收录于姊妹仓库 [doc-workflow](https://github.com/Eason412/doc-workflow)。
@@ -22,9 +24,9 @@
 | `course-report` | 中文课程报告的 PDF 排版与检查 | [任务规范](skills/course-report/SKILL.md) · [使用说明](skills/course-report/README.md) |
 | `paper-figure` | 论文数据图的选图、尺寸与导出检查 | [任务规范](skills/paper-figure/SKILL.md) · [选图参考](skills/paper-figure/references/chart_selection.md) |
 
-各 `skills/<name>` 目录均为独立安装单元，运行资源随目录保留。Codex、Claude Code 等支持 `SKILL.md` 的 Agent 可使用这些规范；脚本执行、浏览器控制和读图能力由宿主提供。
-
-`course-report` 面向课程报告或作业；学位样式只借用封面字段布局。`paper-figure` 面向数据图，示意图、流程图和架构图不属于其范围。
+- **独立安装**：各 `skills/<name>` 目录均为独立安装单元，运行资源随目录保留。
+- **宿主**：Codex、Claude Code 等支持 `SKILL.md` 的 Agent 可使用这些规范；脚本执行、浏览器控制和读图能力由宿主提供。
+- **适用范围**：`course-report` 面向课程报告或作业，学位样式只借用封面字段布局；`paper-figure` 面向数据图，示意图、流程图和架构图不属于其范围。
 
 ## 🛠️ 运行条件
 
@@ -34,11 +36,15 @@
 | `course-report` | uv、Python 3.10+、Pandoc；无第三方 Python 包 | PDF：Tectonic 或 XeLaTeX、中英字体；扩展 QA：Poppler、qpdf |
 | `paper-figure` | uv、Python、matplotlib、seaborn、读图工具 | 中文数据图：中文字体；PDF 字体检查：`pdffonts` |
 
-`oa-paper-fetch` 的独立 OA 脚本兼容 Python 3.10+，uv 项目要求 Python 3.12+。`course-report` 仅生成 LaTeX 时仍需 Pandoc；编译器同时存在时优先使用 Tectonic，首次编译可能下载 TeX 资源。`paper-figure` 未声明固定 Python 或绘图库版本。依赖出处与验收步骤见 [SETUP.md](SETUP.md)（英文）。
+- **Python 版本**：`oa-paper-fetch` 的独立 OA 脚本兼容 Python 3.10+，uv 项目要求 Python 3.12+；`paper-figure` 未声明固定 Python 或绘图库版本。
+- **LaTeX 编译**：`course-report` 仅生成 LaTeX 时仍需 Pandoc；编译器同时存在时优先使用 Tectonic，首次编译可能下载 TeX 资源。
+- **依赖出处**：依赖出处与验收步骤见 [SETUP.md](SETUP.md)（英文）。
 
 ## 🚀 设置方法
 
-由 Agent 读取 [SETUP.md](SETUP.md)（英文）完成安装与所需依赖检查。安装完成后重新打开 Agent 会话，确认 Skill 已被发现。机构访问的账号登录、单点登录与多因素验证由用户本人完成。
+- **设置**：由 Agent 读取 [SETUP.md](SETUP.md)（英文）完成安装与所需依赖检查。
+- **完成后**：重新打开 Agent 会话，确认 Skill 已被发现。
+- **需用户亲自完成**：机构访问的账号登录、单点登录与多因素验证。
 
 | 设置项 | 位置 | 用途 |
 | --- | --- | --- |
@@ -65,7 +71,13 @@
 
 ## 🤝 贡献须知
 
-PR 聚焦一个问题，附受影响的 Skill、最小复现、预期与实际结果及验证记录；行为变更同步测试和说明。样例与日志应去除个人信息和认证数据，保留各 Skill 的许可证与第三方署名。完整要求见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+欢迎提交兼容修复、功能改进与文档修订。提交 PR 前请注意：
+
+- **范围**：PR 聚焦一个问题，附受影响的 Skill、最小复现、预期与实际结果及验证记录。
+- **行为修改**：同步更新测试和说明。
+- **隐私与署名**：样例与日志去除个人信息和认证数据，保留各 Skill 的许可证与第三方署名。
+
+完整要求见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 📄 许可证与署名
 

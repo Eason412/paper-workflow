@@ -4,6 +4,8 @@
 
 **Task-specific Skills for paper acquisition, course reports, and research charts.** This repository contains three academic Agent Skills: `oa-paper-fetch`, `course-report`, and `paper-figure`. A Skill is a task specification defined in `SKILL.md`, optionally accompanied by scripts, templates, and references.
 
+Current version: [V0.1.0](https://github.com/Eason412/paper-workflow/releases/tag/V0.1.0) ([all versions and release notes](https://github.com/Eason412/paper-workflow/releases)).
+
 > ⚠️ Dependencies vary by task. Institutional full-text access requires existing entitlement and personal authentication by the user. Paper acquisition does not support Sci-Hub or paywall bypasses.
 
 Writing and documentation Skills are maintained in the sister repository [doc-workflow](https://github.com/Eason412/doc-workflow) (Chinese).
@@ -22,9 +24,9 @@ Writing and documentation Skills are maintained in the sister repository [doc-wo
 | `course-report` | PDF layout and checks for Chinese course reports | [Task specification (Chinese)](skills/course-report/SKILL.md) · [User guide (Chinese)](skills/course-report/README.md) |
 | `paper-figure` | Chart selection, dimensions, and export checks | [Task specification (Chinese)](skills/paper-figure/SKILL.md) · [Chart selection (Chinese)](skills/paper-figure/references/chart_selection.md) |
 
-Each `skills/<name>` directory is a complete installation unit with its runtime resources. Codex, Claude Code, and other Agents supporting `SKILL.md` can use these specifications; the host provides script execution, browser control, and image inspection capabilities.
-
-`course-report` targets course reports and assignments; its thesis-style option adapts only the cover field layout. `paper-figure` targets data charts; schematic, flow, and architecture diagrams are outside its scope.
+- **Standalone installation**: Each `skills/<name>` directory is a complete installation unit with its runtime resources.
+- **Hosts**: Codex, Claude Code, and other Agents supporting `SKILL.md` can use these specifications; the host provides script execution, browser control, and image inspection capabilities.
+- **Scope**: `course-report` targets course reports and assignments, and its thesis-style option adapts only the cover field layout; `paper-figure` targets data charts, and schematic, flow, and architecture diagrams are outside its scope.
 
 ## 🛠️ Runtime Requirements
 
@@ -34,11 +36,15 @@ Each `skills/<name>` directory is a complete installation unit with its runtime 
 | `course-report` | uv, Python 3.10+, Pandoc; no third-party Python packages | PDF: Tectonic or XeLaTeX, Latin and Chinese fonts; additional QA: Poppler, qpdf |
 | `paper-figure` | uv, Python, matplotlib, seaborn, image inspection tool | Chinese charts: Chinese fonts; PDF font checks: `pdffonts` |
 
-The standalone OA script in `oa-paper-fetch` supports Python 3.10+, while its uv project requires Python 3.12+. `course-report` needs Pandoc even for LaTeX-only output; it prefers Tectonic when both compilers are available, and the first compilation may download TeX resources. `paper-figure` declares no fixed Python or plotting-library versions. Dependency sources and validation steps are in [SETUP.md](SETUP.md).
+- **Python versions**: The standalone OA script in `oa-paper-fetch` supports Python 3.10+, while its uv project requires Python 3.12+; `paper-figure` declares no fixed Python or plotting-library versions.
+- **LaTeX compilation**: `course-report` needs Pandoc even for LaTeX-only output; it prefers Tectonic when both compilers are available, and the first compilation may download TeX resources.
+- **Dependency sources**: Dependency sources and validation steps are in [SETUP.md](SETUP.md).
 
 ## 🚀 Setup
 
-An Agent should read [SETUP.md](SETUP.md) to complete installation and the required dependency checks. Open a new Agent session afterward and confirm Skill discovery. The user personally completes institutional account login, single sign-on, and multi-factor authentication.
+- **Setup**: An Agent reads [SETUP.md](SETUP.md) to complete installation and the required dependency checks.
+- **Afterward**: A new Agent session confirms Skill discovery.
+- **User actions**: The user personally completes institutional account login, single sign-on, and multi-factor authentication.
 
 | Setting | Location | Purpose |
 | --- | --- | --- |
@@ -65,7 +71,13 @@ The author edits Skills directly in the local checkout, then validates, commits,
 
 ## 🤝 Contributions
 
-PRs should address one problem and include the affected Skill, a minimal reproduction, expected and actual results, and validation records. Behavioral changes require matching tests and documentation. Remove personal and authentication data from samples and logs, and preserve Skill licenses and third-party attribution. Full requirements are in [CONTRIBUTING.md (Chinese)](CONTRIBUTING.md).
+Compatibility fixes, feature improvements, and documentation revisions are welcome. Before opening a PR:
+
+- **Scope**: A PR addresses one problem and includes the affected Skill, a minimal reproduction, expected and actual results, and validation records.
+- **Behavior changes**: Update the matching tests and documentation.
+- **Privacy and attribution**: Remove personal and authentication data from samples and logs, and preserve Skill licenses and third-party attribution.
+
+Full requirements are in [CONTRIBUTING.md (Chinese)](CONTRIBUTING.md).
 
 ## 📄 Licensing and Attribution
 
