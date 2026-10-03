@@ -31,6 +31,7 @@ class RepositoryHygieneTests(unittest.TestCase):
             "skills/course-report/assets/templates/ctexart-course-report.tex",
             "skills/course-report/examples/minimal_report.md",
             "skills/course-report/references/format-qa.md",
+            "skills/paper-figure/references/journal_specs.md",
         ]
         with tempfile.TemporaryDirectory() as raw:
             sandbox = Path(raw)

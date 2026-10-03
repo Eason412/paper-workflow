@@ -1,0 +1,4 @@
+interface:
+  display_name: "论文数据图"
+  short_description: "按论证目标选图，按期刊尺寸、中文字体与色盲安全配色出图并自查"
+  default_prompt: "使用 $paper-figure 把这组数据画成论文配图，并渲染检查成图。"
