@@ -1,114 +1,80 @@
 # Paper Workflow
 
-文献身份解析、批量获取与报告排版工具集。以 DOI、完整标题、文章链接或参考文献清单为输入，完成开放获取检索、授权机构全文下载和失败项续传；课程报告 Skill 提供 Markdown 到 LaTeX/PDF 的排版流程。
+中文 | [English](README.en.md)
 
-## 功能与入口
+**从文献获取到课程报告和论文数据图，按学术任务独立选用 Skill。** 本仓库收录 `oa-paper-fetch`、`course-report` 和 `paper-figure` 三个学术类 Agent Skill。Skill 是以 `SKILL.md` 定义的任务规范，可附带脚本、模板和参考资料。
 
-| Skill | 主要功能 | 使用说明 |
+> ⚠️ 各 Skill 的依赖按任务准备；机构全文获取需要已有访问权限，登录与验证由用户本人完成。文献获取不用于 Sci-Hub 或绕过付费墙。
+
+写作与文档类 Skill 收录于姊妹仓库 [doc-workflow](https://github.com/Eason412/doc-workflow)。
+
+## ✨ 特点
+
+- 📚 **开放获取优先与批量续传**：支持 DOI、标题、链接和参考文献清单；优先下载可开放获取的 PDF，必要时复用已登录的 IEEE、Wiley、ScienceDirect 会话，并复用已验证的下载结果。
+- 🖨️ **完整课程报告排版**：中文 Markdown 生成带封面、摘要、目录、图表与公式编号、参考文献的 PDF，配套 Markdown 与 LaTeX 结构检查及成品检查流程。
+- 📊 **论证导向的论文数据图**：根据论证目标与数据形态选图，按期刊成品尺寸处理字号、中文字体、色盲安全配色和矢量导出，并渲染检查成图。
+
+## 🧩 Skill 目录
+
+| Skill | 用途 | 入口 |
 | --- | --- | --- |
-| `oa-paper-fetch` | OA 优先获取、批量清单处理、浏览器登录会话复用、下载状态与续传管理 | [中文说明](skills/oa-paper-fetch/README.zh-CN.md) · [English](skills/oa-paper-fetch/README.md) |
-| `course-report` | 课程报告封面、摘要与目录生成，图表、公式和参考文献排版，双阶段 QA | [使用说明](skills/course-report/README.md) |
+| `oa-paper-fetch` | 开放获取、授权机构全文、批量与续传 | [任务规范](skills/oa-paper-fetch/SKILL.md)（英文）· [中文说明](skills/oa-paper-fetch/README.zh-CN.md) · [英文说明](skills/oa-paper-fetch/README.md) |
+| `course-report` | 中文课程报告的 PDF 排版与检查 | [任务规范](skills/course-report/SKILL.md) · [使用说明](skills/course-report/README.md) |
+| `paper-figure` | 论文数据图的选图、尺寸与导出检查 | [任务规范](skills/paper-figure/SKILL.md) · [选图参考](skills/paper-figure/references/chart_selection.md) |
 
-两个 Skill 均面向 Codex，可独立安装和调用，源码统一在本仓库维护。
+各 `skills/<name>` 目录均为独立安装单元，运行资源随目录保留。Codex、Claude Code 等支持 `SKILL.md` 的 Agent 可使用这些规范；脚本执行、浏览器控制和读图能力由宿主提供。
 
-## 文献获取流程
+`course-report` 面向课程报告或作业；学位样式只借用封面字段布局。`paper-figure` 面向数据图，示意图、流程图和架构图不属于其范围。
 
-```text
-标题 / DOI / URL / 批量清单
-  → 身份解析与去重
-  → 开放获取检索与下载
-  → 未完成项的机构访问（按需启用）
-  → PDF、结果报告与续传清单
-```
+## 🛠️ 运行条件
 
-机构访问支持 IEEE Xplore、Wiley Online Library 和 Elsevier ScienceDirect。首次使用时，由用户在可见浏览器中完成登录；浏览器在本机持久化会话，包括 Cookie，后续批次复用有效登录状态。会话过期或出现验证页面时，暂停机构任务并等待用户重新登录。
+| Skill | 基础依赖 | 按需依赖 |
+| --- | --- | --- |
+| `oa-paper-fetch` | uv、Python 3.12+；OA 层仅用标准库 | 机构 CLI：Playwright 1.40+、Chrome 或 Chromium；已有会话：浏览器控制工具 |
+| `course-report` | uv、Python 3.10+、Pandoc；无第三方 Python 包 | PDF：Tectonic 或 XeLaTeX、中英字体；扩展 QA：Poppler、qpdf |
+| `paper-figure` | uv、Python、matplotlib、seaborn、读图工具 | 中文数据图：中文字体；PDF 字体检查：`pdffonts` |
 
-下载范围以用户已有访问权限为准。登录状态保留在本机浏览器配置目录，不导出 Cookie，不处理学校密码或验证码。
+`oa-paper-fetch` 的独立 OA 脚本兼容 Python 3.10+，uv 项目要求 Python 3.12+。`course-report` 仅生成 LaTeX 时仍需 Pandoc；编译器同时存在时优先使用 Tectonic，首次编译可能下载 TeX 资源。`paper-figure` 未声明固定 Python 或绘图库版本。依赖出处与验收步骤见 [SETUP.md](SETUP.md)（英文）。
 
-## 安装
+## 🚀 设置方法
 
-### 仓库获取
+由 Agent 读取 [SETUP.md](SETUP.md)（英文）完成安装与所需依赖检查。安装完成后重新打开 Agent 会话，确认 Skill 已被发现。机构访问的账号登录、单点登录与多因素验证由用户本人完成。
 
-```bash
-git clone https://github.com/Eason412/paper-workflow.git
-cd paper-workflow
-```
+| 设置项 | 位置 | 用途 |
+| --- | --- | --- |
+| 文献输出与访问偏好 | `~/.oa-paper-fetch/config.json`、CLI 参数 | 默认输出位置、访问方式与单次任务设置 |
+| 报告封面与引用 | 源 Markdown 元数据、构建参数 | 课程、姓名、学号、封面模式与引用保留 |
+| 数据图规格 | 本次任务、绘图代码 | 论证目标、期刊、尺寸、字体与输出格式 |
 
-### Codex 安装
+## 📁 仓库结构
 
-macOS / Linux 可将所需 Skill 链接到个人目录。以下命令在仓库根目录执行；目标位置已有同名安装时，先核对并备份原入口。
-
-```bash
-mkdir -p "$HOME/.agents/skills"
-ln -s "$PWD/skills/oa-paper-fetch" "$HOME/.agents/skills/oa-paper-fetch"
-ln -s "$PWD/skills/course-report" "$HOME/.agents/skills/course-report"
-```
-
-仅需文献获取时，执行第一条链接命令即可。Windows 可将对应的完整 Skill 子目录复制到个人 Skill 目录。安装内容必须包含同目录内的脚本、模板和引用资源。
-
-### 运行依赖
-
-| 用途 | 依赖 |
+| 路径 | 用途 |
 | --- | --- |
-| OA 文献获取 | 独立脚本 Python 3.10+，仅 Python 标准库；uv 环境 Python 3.12+ |
-| 机构登录与全文获取 | uv 的 `institutional` 可选依赖与 Chromium；安装步骤见文献获取说明 |
-| 课程报告排版 | Python 3.10+、Pandoc、Tectonic 或 XeLaTeX、可用中文字体 |
+| `skills/<name>/SKILL.md` | 各 Skill 的任务入口 |
+| `skills/<name>/agents/openai.yaml` | Codex 显示信息 |
+| `skills/<name>/references/` | 工作流、格式与选图参考 |
+| `skills/course-report/scripts/`、`assets/`、`examples/` | 报告构建、模板与样例 |
+| `skills/oa-paper-fetch/*.py` | 文献获取、身份解析、配置与恢复状态 |
+| `skills/<name>/tests/`（若有）、`tests/` | Skill 回归与仓库卫生检查 |
+| [scripts/link-skills.sh](scripts/link-skills.sh) | 个人 Skill 入口的链接安装 |
+| [SETUP.md](SETUP.md) | 面向 Agent 的设置与验收手册（英文） |
+| [AGENTS.md](AGENTS.md)、[CONTRIBUTING.md](CONTRIBUTING.md) | 项目规则与贡献要求 |
+| [.github/workflows/](.github/workflows/) | 文献获取回归与报告 PDF 构建配置 |
 
-## 使用示例
+修改与验证规则见 [AGENTS.md](AGENTS.md)。
 
-### 批量文献获取
+## 🤝 贡献须知
 
-```text
-使用 $oa-paper-fetch，将这份参考文献清单中的论文下载到指定目录。
-先尝试开放获取，未获取到的论文使用已配置的学校访问。
-```
+PR 聚焦一个问题，附受影响的 Skill、最小复现、预期与实际结果及验证记录；行为变更同步测试和说明。样例与日志应去除个人信息和认证数据，保留各 Skill 的许可证与第三方署名。完整要求见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-### 首次机构登录
+## 📄 许可证与署名
 
-```text
-使用 $oa-paper-fetch，打开机构登录浏览器，由我完成登录并保留本机会话。
-```
+许可证按各 Skill 目录内的文件确定，根目录没有统一 `LICENSE`。
 
-### 未完成项续传
+| Skill | 许可证 | 版权署名 |
+| --- | --- | --- |
+| `oa-paper-fetch` | [MIT（英文）](skills/oa-paper-fetch/LICENSE) | Eason412 |
+| `course-report` | [MIT（英文）](skills/course-report/LICENSE) | Huyi |
+| `paper-figure` | [MIT（英文）](skills/paper-figure/LICENSE) | Haojae |
 
-```text
-使用 $oa-paper-fetch，按上次生成的 oa_fetch_pending.csv 继续下载。
-```
-
-### 课程报告生成
-
-```text
-使用 $course-report，将 report.md 转为课程报告 PDF，不添加封面。
-```
-
-文献默认保存到 `~/Desktop/Papers`，可通过请求或 CLI 的 `--out` 指定其他目录。报告排版以已有 Markdown 为输入；具体命令、状态解释和示例文件见各 Skill 的使用说明。
-
-## 开发与维护
-
-```text
-skills/oa-paper-fetch/             文献获取源码、测试与使用说明
-skills/course-report/    报告排版源码、模板、示例与测试
-.github/workflows/                独立回归与 PDF 构建检查
-```
-
-源码修改在对应 Skill 子目录完成。两套测试分别执行，避免同名 Python 模块互相影响：
-
-```bash
-cd skills/oa-paper-fetch
-PYTHONDONTWRITEBYTECODE=1 uv run --no-project python -m unittest discover -s tests -v
-cd ../course-report
-PYTHONDONTWRITEBYTECODE=1 uv run --no-project python -m unittest discover -s tests -v
-uv run scripts/run_smoke_tests.py
-```
-
-问题反馈与 PR 应包含最小复现、预期和实际结果、解决思路及验证记录，见 [贡献指南](CONTRIBUTING.md)。日志、截图和输入样例须去除个人信息及认证数据。
-
-仓库根目录的 `.gitignore` 同样覆盖下载 PDF、获取状态、浏览器会话和默认排版产物；模板、源码及示例仍作为版本管理内容。根目录校验命令：
-
-```bash
-PYTHONDONTWRITEBYTECODE=1 uv run --no-project python -m unittest discover -s tests -v
-```
-
-## 许可证
-
-两项 Skill 的原创代码分别保留原有 MIT 许可证：[文献获取](skills/oa-paper-fetch/LICENSE)、[报告排版](skills/course-report/LICENSE)。报告排版所附校徽与官方格式资料的来源和权利说明见 [第三方材料声明](skills/course-report/THIRD_PARTY_NOTICES.md)。
+`course-report` 的校徽与官方格式资料另见 [THIRD_PARTY_NOTICES.md](skills/course-report/THIRD_PARTY_NOTICES.md)（英文）；相关名称、标识与材料的权利归原权利人。

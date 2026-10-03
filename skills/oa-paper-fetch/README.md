@@ -8,7 +8,7 @@ The default output is `~/Desktop/Papers`. CLI version: `0.5.0`. The standalone O
 
 ## Installation and entrypoints
 
-See [Paper Workflow](../../README.md#安装) for installation and shared maintenance. This directory is the complete Skill unit; retain all five Python modules and supporting resources.
+See the [Paper Workflow setup manual](../../SETUP.md) for installation and [Paper Workflow](../../README.en.md) for shared maintenance. This directory is the complete Skill unit; retain all five Python modules and supporting resources.
 
 From the collection root, enter the Skill directory. Run subsequent commands there:
 

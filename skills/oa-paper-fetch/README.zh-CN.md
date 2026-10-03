@@ -8,7 +8,7 @@
 
 ## 安装与入口
 
-Skill 安装与总仓库维护见 [Paper Workflow](../../README.md#安装)。本目录为独立安装单元，需保留五个 Python 模块及配套资源。
+Skill 安装见 [Paper Workflow 安装手册](../../SETUP.md)，总仓库维护见 [Paper Workflow](../../README.md)。本目录为独立安装单元，需保留五个 Python 模块及配套资源。
 
 从总仓库根目录进入后，后续命令均在本 Skill 目录执行：
 

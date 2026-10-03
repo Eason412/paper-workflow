@@ -10,7 +10,7 @@ Markdown 与本地图片 → 预处理 → Pandoc / ctexart → LaTeX 后处理 
 
 ## 安装与环境
 
-Skill 安装见 [Paper Workflow](../../README.md#安装)。本目录是完整安装单元，脚本、模板、示例和格式参考应一并保留。
+Skill 安装见 [Paper Workflow 安装手册](../../SETUP.md)。本目录是完整安装单元，脚本、模板、示例和格式参考应一并保留。
 
 运行依赖为 uv、Python 3.10+、Pandoc，以及 Tectonic 或 XeLaTeX。模板包含中文字体回退；固定字体要求应在目标环境核对。首次 Tectonic 编译可能需要下载 TeX 资源包。
 
@@ -27,7 +27,7 @@ tectonic --version
 完成总仓库的链接安装后，在准备存放报告的目录执行：
 
 ```bash
-SKILL_DIR="$HOME/.agents/skills/course-report"
+SKILL_DIR="$HOME/.codex/skills/course-report"   # Claude Code：$HOME/.claude/skills/course-report
 mkdir -p my-course-report
 cp "$SKILL_DIR/examples/标准课程报告模板.md" my-course-report/report.md
 cd my-course-report
