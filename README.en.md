@@ -74,7 +74,7 @@ Licenses are defined by files within individual Skill directories. There is no c
 | Skill | License | Copyright Attribution |
 | --- | --- | --- |
 | `oa-paper-fetch` | [MIT](skills/oa-paper-fetch/LICENSE) | Eason412 |
-| `course-report` | [MIT](skills/course-report/LICENSE) | Huyi |
+| `course-report` | [MIT](skills/course-report/LICENSE) | Eason412 |
 | `paper-figure` | [MIT](skills/paper-figure/LICENSE) | Haojae |
 
 The `course-report` emblem and official formatting materials are covered separately in [THIRD_PARTY_NOTICES.md](skills/course-report/THIRD_PARTY_NOTICES.md). Rights to those names, marks, and materials remain with their respective rightsholders.

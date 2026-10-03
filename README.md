@@ -74,7 +74,7 @@ PR 聚焦一个问题，附受影响的 Skill、最小复现、预期与实际�
 | Skill | 许可证 | 版权署名 |
 | --- | --- | --- |
 | `oa-paper-fetch` | [MIT（英文）](skills/oa-paper-fetch/LICENSE) | Eason412 |
-| `course-report` | [MIT（英文）](skills/course-report/LICENSE) | Huyi |
+| `course-report` | [MIT（英文）](skills/course-report/LICENSE) | Eason412 |
 | `paper-figure` | [MIT（英文）](skills/paper-figure/LICENSE) | Haojae |
 
 `course-report` 的校徽与官方格式资料另见 [THIRD_PARTY_NOTICES.md](skills/course-report/THIRD_PARTY_NOTICES.md)（英文）；相关名称、标识与材料的权利归原权利人。
