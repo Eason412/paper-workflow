@@ -6,7 +6,8 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from pathlib import Path
+import sys
+from pathlib import Path, PurePath
 from urllib.parse import urlparse
 
 
@@ -21,7 +22,7 @@ REFERENCE_LABEL_RE = re.compile(r"(?m)^\s*(?:[\[［](\d+)[\]］]|(\d+)[.、])\s+
 INVALID_TABLE_CAPTION_RE = re.compile(r"^\s*(?:表|图|Table|Figure)\s*[：:]\s+\S+", re.I)
 LINK_DEFINITION_RE = re.compile(r"^\s*\[[^\]]+\]:")
 SLIDE_PAGE_HEADING_RE = re.compile(r"^##\s*第\s*\d+\s*页\s*[｜|:：]")
-SLIDE_FIELD_RE = re.compile(r"^(?:屏幕|讲|图|手工反应式)\s*[：:]")
+SLIDE_FIELD_RE = re.compile(r"^(?:屏幕|讲|图)\s*[：:]")
 FRONT_MATTER_KV_RE = re.compile(r"^\s*([^:：#][^:：]*?)\s*[:：]\s*(.*?)\s*$")
 
 # 学位论文封面 front-matter 键 -> metadata.yaml 模板变量名。
@@ -94,18 +95,33 @@ def parse_front_matter(text: str) -> tuple[dict[str, str], str]:
     for idx in range(1, len(lines)):
         if lines[idx].strip() in {"---", "..."}:
             data: dict[str, str] = {}
-            for raw in lines[1:idx]:
+            for number, raw in enumerate(lines[1:idx], start=2):
                 if not raw.strip() or raw.lstrip().startswith("#"):
                     continue
+                if raw.startswith((" ", "\t")):
+                    raise ValueError(f"front matter line {number}: nested/indented fields are not supported")
                 match = FRONT_MATTER_KV_RE.match(raw)
                 if not match:
-                    continue
+                    raise ValueError(f"front matter line {number}: expected single-line key: value")
                 key = match.group(1).strip()
-                value = match.group(2).strip().strip("'\"")
+                value = match.group(2).strip()
+                if value.startswith(('"', "'")):
+                    quoted = re.fullmatch(r'''("(?:\\.|[^"\\])*"|'(?:''|[^'])*')\s*(?:#.*)?''', value)
+                    if not quoted:
+                        raise ValueError(f"front matter line {number}: unpaired quote or trailing content")
+                    token = quoted.group(1)
+                    try:
+                        value = json.loads(token) if token.startswith('"') else token[1:-1].replace("''", "'")
+                    except json.JSONDecodeError as exc:
+                        raise ValueError(f"front matter line {number}: invalid quoted string") from exc
+                else:
+                    value = re.split(r"\s+#", value, maxsplit=1)[0].rstrip()
+                    if value in {"|", ">", "|-", ">-", "|+", ">+"} or value.startswith(("[", "{")):
+                        raise ValueError(f"front matter line {number}: only single-line string values are supported")
                 if key:
                     data[key] = value
             return data, "\n".join(lines[idx + 1 :])
-    return {}, text
+    raise ValueError("front matter: missing closing --- delimiter")
 
 
 def map_front_matter(raw: dict[str, str]) -> dict[str, str]:
@@ -209,17 +225,28 @@ def extract_reference_numbers(text: str) -> list[int]:
 
 def split_reference_section(body: str) -> tuple[str, str]:
     lines = body.splitlines()
+    bounds = reference_section_bounds(lines)
+    if bounds is None:
+        return body, ""
+    start, end = bounds
+    return "\n".join(lines[:start] + lines[end:]), "\n".join(lines[start:end])
+
+
+def reference_section_bounds(lines: list[str]) -> tuple[int, int] | None:
     protected = protected_line_indexes(lines)
     visible = comment_context_lines(lines, protected)
     candidates = [idx for idx, line in enumerate(visible) if idx not in protected and is_reference_heading(line)]
     for idx in reversed(candidates):
-        tail = "\n".join(lines[idx + 1 :])
-        if extract_reference_numbers(tail):
-            return "\n".join(lines[:idx]), "\n".join(lines[idx:])
-    for idx in reversed(candidates):
-        if idx >= max(0, int(len(lines) * 0.75)):
-            return "\n".join(lines[:idx]), "\n".join(lines[idx:])
-    return body, ""
+        level = len(HEADING_RE.match(visible[idx]).group(1))
+        end = len(lines)
+        for next_idx in range(idx + 1, len(lines)):
+            heading = HEADING_RE.match(visible[next_idx]) if next_idx not in protected else None
+            if heading and len(heading.group(1)) <= level:
+                end = next_idx
+                break
+        if extract_reference_numbers("\n".join(lines[idx + 1:end])) or idx >= int(len(lines) * 0.75):
+            return idx, end
+    return None
 
 
 def detect_slide_draft(lines: list[str]) -> dict[str, object]:
@@ -228,13 +255,11 @@ def detect_slide_draft(lines: list[str]) -> dict[str, object]:
     visible_lines = [line for idx, line in enumerate(lines) if idx not in protected]
     page_heading_count = sum(1 for line in visible_lines if SLIDE_PAGE_HEADING_RE.match(line.strip()))
     slide_field_count = sum(1 for line in visible_lines if SLIDE_FIELD_RE.match(line.strip()))
-    text_fence_count = sum(1 for line in lines if line.strip() == "```text")
     detected = page_heading_count >= 3 and slide_field_count >= 6
     return {
         "detected": detected,
         "page_heading_count": page_heading_count,
         "slide_field_count": slide_field_count,
-        "text_fence_count": text_fence_count,
     }
 
 
@@ -555,10 +580,12 @@ def collect_invalid_body_citations(body_before_refs: str) -> list[str]:
     return invalid
 
 
-def dedupe_repeated_citations(body: str) -> tuple[str, dict[str, object]]:
-    body_before_refs, reference_section = split_reference_section(body)
-    lines = body_before_refs.splitlines()
+def dedupe_repeated_citations(body: str, keep_repeated_citations: bool = False) -> tuple[str, dict[str, object]]:
+    lines = body.splitlines()
     protected = protected_line_indexes(lines)
+    bounds = reference_section_bounds(lines)
+    if bounds:
+        protected.update(range(*bounds))
     table_lines = build_table_line_set(lines)
     context = citation_context_lines(lines, protected | table_lines)
     seen: set[int] = set()
@@ -573,6 +600,8 @@ def dedupe_repeated_citations(body: str) -> tuple[str, dict[str, object]]:
         marker = match.group(0)
         numbers = expand_numeric_markers([match.group(1)])
         if not numbers:
+            return marker
+        if keep_repeated_citations:
             return marker
         new_numbers = [number for number in numbers if number not in seen]
         repeated_numbers = [number for number in numbers if number in seen]
@@ -597,6 +626,8 @@ def dedupe_repeated_citations(body: str) -> tuple[str, dict[str, object]]:
 
     out_lines: list[str] = []
     for idx, line in enumerate(lines):
+        if bounds and idx == bounds[1]:
+            seen.clear()
         if idx in protected or idx in table_lines or LINK_DEFINITION_RE.match(line):
             out_lines.append(line)
             continue
@@ -618,8 +649,6 @@ def dedupe_repeated_citations(body: str) -> tuple[str, dict[str, object]]:
         out_lines.append(replaced_line)
 
     deduped_body = "\n".join(out_lines)
-    if reference_section:
-        deduped_body = deduped_body.rstrip() + "\n\n" + reference_section.lstrip()
 
     return deduped_body, {
         "removed_marker_count": removed_marker_count,
@@ -637,7 +666,9 @@ def strip_outer_title_marks(text: str) -> str:
     return text
 
 
-def yaml_block(key: str, value: str) -> str:
+def yaml_block(key: str, value: str | PurePath) -> str:
+    if isinstance(value, PurePath):
+        value = value.as_posix()
     value = value.rstrip()
     if not value:
         return f"{key}: ''\n"
@@ -756,57 +787,10 @@ def table_caption_has_manual_number(line: str) -> bool:
 
 
 def scan_pipe_tables(lines: list[str]) -> dict[str, object]:
-    tables = []
-    manual_captions = []
-    separated_captions = []
-    invalid_captions = []
     protected = protected_line_indexes(lines)
-    for found in find_pipe_tables(lines, protected):
-        start = int(found["start_line"]) - 1
-        end = int(found["end_line"]) - 1
-        caption_idx = end + 1
-        caption = lines[caption_idx].strip() if caption_idx < len(lines) else ""
-        has_caption = is_table_caption(caption)
-        if caption and INVALID_TABLE_CAPTION_RE.match(caption):
-            invalid_captions.append(caption)
-        if not has_caption:
-            loose_idx = caption_idx
-            blank_lines = 0
-            while loose_idx < len(lines) and not lines[loose_idx].strip():
-                blank_lines += 1
-                loose_idx += 1
-            if blank_lines and loose_idx < len(lines) and is_table_caption(lines[loose_idx].strip()):
-                separated_captions.append(
-                    {
-                        "table_start_line": start + 1,
-                        "caption_line": loose_idx + 1,
-                        "blank_lines_before_caption": blank_lines,
-                    }
-                )
-        if has_caption and table_caption_has_manual_number(caption):
-            manual_captions.append(caption)
-        tables.append(
-            {
-                "start_line": start + 1,
-                "end_line": end + 1,
-                "caption_line": caption_idx + 1 if has_caption else None,
-                "caption": caption if has_caption else "",
-                "column_count": found["column_count"],
-            }
-        )
-    return {
-        "pipe_table_count": len(tables),
-        "table_caption_count": sum(1 for table in tables if table["caption"]),
-        "tables_without_adjacent_caption": [
-            {"start_line": table["start_line"], "end_line": table["end_line"]}
-            for table in tables
-            if not table["caption"]
-        ],
-        "invalid_table_captions": invalid_captions,
-        "table_captions_with_manual_numbers": manual_captions,
-        "table_captions_separated_by_blank_line": separated_captions,
-        "tables": tables,
-    }
+    tables = find_pipe_tables(lines, protected)
+    # Caption validity belongs to Pandoc's parsed tables, not a Markdown regex.
+    return {"pipe_table_count": len(tables)}
 
 
 def markdown_image_destination(raw_target: str) -> str:
@@ -925,7 +909,8 @@ def main() -> int:
     parser.add_argument("--student-id", default="")
     parser.add_argument("--logo", default="")
     parser.add_argument("--no-cover", action="store_true")
-    parser.add_argument("--allow-slide-draft", action="store_true")
+    parser.add_argument("--allow-slide-draft", action="store_true", help="已废弃，无效果")
+    parser.add_argument("--keep-repeated-citations", action="store_true")
     args = parser.parse_args()
 
     source = args.source
@@ -956,7 +941,7 @@ def main() -> int:
             "course": course,
             "studentname": studentname,
             "studentid": studentid,
-            "logo": args.logo,
+            "logo": Path(args.logo).as_posix() if args.logo else "",
             "cover_disabled": "yes" if args.no_cover else "",
             "thesis_cover": "yes" if thesis_cover and not args.no_cover else "",
             "classification": front_matter.get("classification", ""),
@@ -979,19 +964,15 @@ def main() -> int:
             warnings.append(f"{key} 有 {count} 个关键词，超过最多 5 个的默认限制。")
 
     prepared_body = "\n".join(body_lines).strip() + "\n"
-    prepared_body, citation_dedup = dedupe_repeated_citations(prepared_body)
+    prepared_body, citation_dedup = dedupe_repeated_citations(prepared_body, args.keep_repeated_citations)
     prepared_body = prepared_body.strip() + "\n"
     qa = scan_body(prepared_body, source.parent)
     qa["citation_dedup"] = citation_dedup
-    qa["probable_slide_draft"] = {
-        **slide_draft,
-        "allowed": args.allow_slide_draft,
-    }
-    if slide_draft["detected"] and not args.allow_slide_draft:
+    qa["probable_slide_draft"] = slide_draft
+    if slide_draft["detected"]:
         warnings.append(
             "输入看起来是逐页讲稿或幻灯片内容稿（如“第 X 页”“屏幕：”“讲：”“图：”），"
-            "不是正式课程报告 Markdown；请先改写成摘要、章节正文和参考文献结构，"
-            "或确认后使用 --allow-slide-draft 强制转换。"
+            "已按原稿转换，请检查是否需要课程报告结构。"
         )
     if qa["missing_images"]:
         warnings.append("存在缺失图片：" + ", ".join(qa["missing_images"]))
@@ -1003,14 +984,6 @@ def main() -> int:
         warnings.append("存在非法引用格式：" + ", ".join(qa["invalid_citation_markers"]))
     if qa["unused_reference_entries"]:
         warnings.append("存在未被正文引用的参考文献条目，请确认是否保留：" + ", ".join(map(str, qa["unused_reference_entries"])))
-    if qa["tables_without_adjacent_caption"]:
-        warnings.append("存在 Markdown 表格但未发现紧邻表题；三线表可能无法自动编号。")
-    if qa["invalid_table_captions"]:
-        warnings.append("存在不支持的表题写法；请使用紧邻表格的 ': 标题'，不要使用 '表:' 或 'Table:'。")
-    if qa["table_captions_separated_by_blank_line"]:
-        warnings.append("表题与 Markdown 表格之间存在空行；Pandoc 可能不会把它识别为表题。")
-    if qa["table_captions_with_manual_numbers"]:
-        warnings.append("表题含手写编号，可能与 LaTeX 自动编号重复。")
     logo_path, logo_exists, logo_inside_project = (
         resolve_project_asset(args.logo, source.parent)
         if args.logo
@@ -1070,4 +1043,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except ValueError as exc:
+        print(f"prepare_course_report failed: {exc}", file=sys.stderr)
+        raise SystemExit(1)

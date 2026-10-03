@@ -19,20 +19,35 @@ RAW_CITATION_TEX_RE = re.compile(r"\{\[\}([\d,\-\s]+?)\{\]\}")
 LONGTABLE_RE = re.compile(r"\\begin\{longtable\}.*?\\end\{longtable\}", re.S)
 
 
-def split_references(tex: str) -> tuple[str, str]:
+def reference_bounds(tex: str) -> tuple[int, int] | None:
     sentinel_block = re.compile(
         rf"^{re.escape(REF_SENTINEL)}\s*\n\s*\\phantomsection\s*\n\s*{re.escape(REF_MARKER)}",
         re.M,
     )
     sentinel_matches = list(sentinel_block.finditer(tex))
     if sentinel_matches:
-        pos = sentinel_matches[-1].start()
+        heading = sentinel_matches[-1]
     else:
         heading_matches = list(REF_HEADING_RE.finditer(tex))
         if not heading_matches:
-            return tex, ""
-        pos = heading_matches[-1].start()
-    return tex[:pos], tex[pos:]
+            return None
+        heading = heading_matches[-1]
+    pos = heading.start()
+    end_marker = tex.find("% COURSE_REPORT_REFERENCES_END", pos)
+    if end_marker != -1:
+        return pos, end_marker
+    # Manual fallback: stop at the next chapter, preserving lower-level headings.
+    next_heading = re.search(r"\\section\*?\{", tex[heading.end():])
+    end = heading.end() + next_heading.start() if next_heading else len(tex)
+    return pos, end
+
+
+def split_references(tex: str) -> tuple[str, str]:
+    bounds = reference_bounds(tex)
+    if bounds is None:
+        return tex, ""
+    start, end = bounds
+    return tex[:start] + tex[end:], tex[start:end]
 
 
 def convert_citations(body: str) -> str:
@@ -219,15 +234,44 @@ def _remove_bare_url(match: re.Match[str]) -> str:
     return trailing
 
 
-def clean_reference_tail(refs: str) -> str:
+def clean_reference_tail(refs: str, keep_reference_urls: bool = False) -> str:
     if not refs:
         return refs
     refs = refs.replace(REF_SENTINEL + "\n", "")
     refs = refs.replace(REF_MARKER + "\n\\addcontentsline", REF_MARKER + "\n\\phantomsection\n\\addcontentsline")
-    refs = _strip_reference_link_commands(refs)
-    refs = re.sub(r"https?://[^\s{}\\]+", _remove_bare_url, refs)
+    if not keep_reference_urls:
+        refs = _strip_reference_link_commands(refs)
+        refs = re.sub(r"https?://[^\s{}\\]+", _remove_bare_url, refs)
     refs = re.sub(r"[ \t]+([,.;:!?，。；：、])", r"\1", refs)
     return refs
+
+
+def prose_raw_citations(body: str, tex: str | None = None) -> list[str]:
+    ast_summary = re.search(r"(?m)^% COURSE_REPORT_RAW_CITATIONS[^\S\n]*(.*)$", tex if tex is not None else body)
+    if ast_summary:
+        return re.findall(r"\[([\d,\-\s]+)\]", ast_summary.group(1))
+    # Standalone/manual postprocessing has no AST summary. Exclude protected TeX.
+    body = re.sub(r"\\begin\{(?:verbatim|Verbatim|lstlisting)\}.*?\\end\{(?:verbatim|Verbatim|lstlisting)\}", "", body, flags=re.S)
+    body = re.sub(r"\\verb\*?([^\w\s]).*?\1", "", body)
+    body = re.sub(r"\\\[.*?\\\]|\\\(.*?\\\)", "", body, flags=re.S)
+    output: list[str] = []
+    position = 0
+    command = re.compile(r"\\(?:texttt|href|url|path)\{")
+    while position < len(body):
+        match = command.match(body, position)
+        if match:
+            parsed = _read_braced(body, match.end() - 1)
+            if parsed:
+                end = parsed[1]
+                if match.group().startswith(r"\href"):
+                    label = _read_braced(body, end)
+                    if label:
+                        end = label[1]
+                position = end
+                continue
+        output.append(body[position])
+        position += 1
+    return RAW_CITATION_TEX_RE.findall("".join(output))
 
 
 def qa_report(tex: str, body: str, refs: str) -> dict[str, object]:
@@ -258,8 +302,11 @@ def qa_report(tex: str, body: str, refs: str) -> dict[str, object]:
     return {
         "references_section_found": bool(refs),
         "body_has_abstract_section": bool(re.search(r"\\section\{(?:摘要|Abstract)\}", body)),
-        "remaining_raw_citations_before_references": RAW_CITATION_TEX_RE.findall(body),
-        "remaining_unnumbered_display_math": len(re.findall(r"\\\[", body)),
+        "remaining_raw_citations_before_references": prose_raw_citations(body, tex),
+        "remaining_unnumbered_display_math": sum(
+            1 for formula in re.findall(r"\\\[(.*?)\\\]", body, flags=re.S)
+            if not re.search(r"\\(?:tag|label)\s*\{", formula)
+        ),
         "equation_count": len(re.findall(r"\\begin\{equation\}", tex)),
         "textsupcite_count": len(re.findall(r"\\textsupcite\{", body)),
         "reference_labels": re.findall(r"\{\[\}(\d+)\{\]\}", refs),
@@ -299,7 +346,7 @@ def qa_report(tex: str, body: str, refs: str) -> dict[str, object]:
             )
             for table in longtables
         ),
-        "table_captions_with_manual_numbers": re.findall(r"\\caption\{[表Table\s]*\d+(?:\.\d+)?[^}]*\}", tex),
+        "table_captions_with_manual_numbers": re.findall(r"\\caption(?:\[[^\]]*\])?\{\s*(?:(?:表|Table)\s*)?\d+(?:\.\d+)?[^}]*\}", tex),
         "toc_section_font_size": toc_section_font_size,
         "toc_section_is_bold": toc_section_is_bold,
         "toc_sub_font_size": toc_sub_font_size,
@@ -324,12 +371,15 @@ def main() -> int:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--in-place", action="store_true")
     parser.add_argument("--qa", type=Path, default=Path("latex/postprocess_qa.json"))
+    parser.add_argument("--keep-reference-urls", action="store_true")
     args = parser.parse_args()
 
     tex = args.tex.read_text(encoding="utf-8")
     body, refs = split_references(tex)
-    refs = clean_reference_tail(refs)
-    processed = add_longtable_continuations(center_longtable_cells(center_longtable_headers(body + refs)))
+    bounds = reference_bounds(tex)
+    refs = clean_reference_tail(refs, args.keep_reference_urls)
+    combined = tex if bounds is None else tex[:bounds[0]] + refs + tex[bounds[1]:]
+    processed = add_longtable_continuations(center_longtable_cells(center_longtable_headers(combined)))
     out = args.tex if args.in_place or args.output is None else args.output
     out.write_text(processed, encoding="utf-8")
     if args.qa:

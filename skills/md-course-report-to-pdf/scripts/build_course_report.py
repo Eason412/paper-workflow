@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
 """Build a Markdown course report through the bundled LaTeX workflow."""
 
 from __future__ import annotations
@@ -71,11 +75,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--student-id", default="")
     parser.add_argument("--logo", default="")
     parser.add_argument("--no-cover", action="store_true")
-    parser.add_argument("--allow-slide-draft", action="store_true")
+    parser.add_argument("--allow-slide-draft", action="store_true", help="已废弃，无效果")
+    parser.add_argument("--keep-repeated-citations", action="store_true")
+    parser.add_argument("--keep-reference-urls", action="store_true")
     parser.add_argument("--work-dir", type=Path, default=Path("latex"))
     parser.add_argument("--tex", type=Path, default=Path("course_report.tex"))
     parser.add_argument("--pdf", type=Path, default=Path("course_report.pdf"))
-    parser.add_argument("--output-pdf", type=Path)
     parser.add_argument("--keep-intermediates", action="store_true")
     parser.add_argument("--skip-compile", action="store_true")
     parser.add_argument("--command-timeout", type=float, default=DEFAULT_COMMAND_TIMEOUT)
@@ -94,6 +99,8 @@ def run(
             check=False,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
         )
     except subprocess.TimeoutExpired as exc:
@@ -169,7 +176,6 @@ def validate_generated_path_collisions(
     work_dir: Path,
     tex_path: Path,
     pdf_path: Path,
-    output_pdf: Path | None,
 ) -> None:
     generated = [work_dir / name for name in INTERMEDIATE_NAMES]
     for path in generated:
@@ -177,8 +183,6 @@ def validate_generated_path_collisions(
             raise RuntimeError(f"source Markdown conflicts with a generated intermediate: {path}")
     if paths_are_same(tex_path, pdf_path):
         raise RuntimeError("--tex and --pdf must not refer to the same file")
-    if output_pdf is not None and paths_are_same(tex_path, output_pdf):
-        raise RuntimeError("--tex and --output-pdf must not refer to the same file")
 
 
 def acquire_project_lock(project_dir: Path, timeout: float) -> TextIO:
@@ -237,15 +241,15 @@ def validate_pdf_file(path: Path) -> None:
 
 def relative_project_path(path: Path, project_dir: Path) -> str:
     try:
-        return str(path.resolve().relative_to(project_dir.resolve()))
+        return path.resolve().relative_to(project_dir.resolve()).as_posix()
     except ValueError:
-        return str(path.resolve())
+        return path.resolve().as_posix()
 
 
 def copy_logo_into_project(logo: str, work_dir: Path, project_dir: Path) -> str:
     logo_path = Path(logo)
     if not logo_path.is_absolute():
-        return logo
+        return logo_path.as_posix()
     if not logo_path.exists():
         raise RuntimeError(f"--logo file was not found: {logo_path}")
     suffix = logo_path.suffix if logo_path.suffix else ".png"
@@ -266,16 +270,6 @@ def validate_prepare_qa(report: dict[str, object]) -> list[str]:
         failures.append("image files are missing")
     if qa.get("unsafe_image_paths"):
         failures.append("image paths are absolute, remote, or outside the source Markdown directory")
-    slide_draft = qa.get("probable_slide_draft")
-    if (
-        isinstance(slide_draft, dict)
-        and slide_draft.get("detected") is True
-        and slide_draft.get("allowed") is not True
-    ):
-        failures.append(
-            "input looks like page-by-page lecture notes or a slide draft; rewrite it as a course report first "
-            "or pass --allow-slide-draft to force conversion"
-        )
     if cover.get("logo_path") and cover.get("logo_exists") is not True:
         failures.append("logo file is missing")
     if cover.get("logo_path") and cover.get("logo_inside_project") is not True:
@@ -286,14 +280,6 @@ def validate_prepare_qa(report: dict[str, object]) -> list[str]:
         failures.append("citations are missing reference-list entries")
     if qa.get("invalid_citation_markers"):
         failures.append("citation markers use invalid numeric syntax")
-    if qa.get("tables_without_adjacent_caption"):
-        failures.append("Markdown pipe tables are missing adjacent Pandoc captions")
-    if qa.get("invalid_table_captions"):
-        failures.append("Markdown pipe table captions use unsupported syntax")
-    if qa.get("table_captions_separated_by_blank_line"):
-        failures.append("Markdown pipe table captions are separated by blank lines")
-    if qa.get("table_captions_with_manual_numbers"):
-        failures.append("table captions contain manual numbers")
     return failures
 
 
@@ -308,7 +294,7 @@ def validate_cover_fields(report: dict[str, object]) -> list[str]:
     return ["course, student name, and student ID are required for a course cover"]
 
 
-def validate_postprocess_qa(qa: dict[str, object]) -> list[str]:
+def validate_postprocess_qa(qa: dict[str, object], keep_reference_urls: bool = False) -> list[str]:
     failures: list[str] = []
     if qa.get("body_has_abstract_section") is not False:
         failures.append("body_has_abstract_section is not false")
@@ -321,7 +307,7 @@ def validate_postprocess_qa(qa: dict[str, object]) -> list[str]:
         failures.append("unnumbered display math remains")
     if qa.get("dangling_url_macro") is not False:
         failures.append("dangling URL macro remains")
-    if qa.get("reference_urls"):
+    if qa.get("reference_urls") and not keep_reference_urls:
         failures.append("reference URLs remain")
     if qa.get("longtables_missing_caption") not in (0, None):
         failures.append("longtable captions are missing")
@@ -385,6 +371,7 @@ def compile_tex(
                         xelatex,
                         "-interaction=nonstopmode",
                         "-halt-on-error",
+                        "-file-line-error",
                         f"-output-directory={compile_dir}",
                         str(tex_path),
                     ],
@@ -404,16 +391,6 @@ def compile_tex(
     validate_pdf_file(expected_pdf)
 
 
-def cleanup_intermediates(tex_path: Path, expected_pdf: Path) -> None:
-    base = tex_path.with_suffix("")
-    for suffix in GENERATED_SUFFIXES:
-        path = Path(str(base) + suffix)
-        if path == expected_pdf:
-            continue
-        if path.exists():
-            path.unlink()
-
-
 def main() -> int:
     args = parse_args()
     project_lock: TextIO | None = None
@@ -430,17 +407,12 @@ def main() -> int:
             raise RuntimeError(f"source Markdown was not found: {source}")
         if args.command_timeout <= 0:
             raise RuntimeError("--command-timeout must be greater than zero")
-        if args.skip_compile and args.output_pdf:
-            raise RuntimeError("--output-pdf requires compilation; omit --output-pdf when using --skip-compile.")
         project_dir = source.parent
         work_dir = project_path(args.work_dir, project_dir)
         tex_path = project_path(args.tex, project_dir)
         pdf_path = project_path(args.pdf, project_dir)
-        output_pdf = project_path(args.output_pdf, project_dir) if args.output_pdf else None
         validate_output_path(tex_path, source, ".tex", "--tex")
         validate_output_path(pdf_path, source, ".pdf", "--pdf")
-        if output_pdf:
-            validate_output_path(output_pdf, source, ".pdf", "--output-pdf")
         if not is_within(work_dir, project_dir):
             raise RuntimeError(
                 "--work-dir must be inside the source Markdown directory so generated metadata, "
@@ -449,11 +421,11 @@ def main() -> int:
         if not is_within(tex_path, project_dir):
             raise RuntimeError(
                 "--tex must be inside the source Markdown directory so relative images compile; "
-                "use --output-pdf to copy the final PDF elsewhere."
+                "use --pdf to place the final PDF elsewhere."
             )
         if work_dir.exists() and not work_dir.is_dir():
             raise RuntimeError(f"--work-dir must be a directory path: {work_dir}")
-        validate_generated_path_collisions(source, work_dir, tex_path, pdf_path, output_pdf)
+        validate_generated_path_collisions(source, work_dir, tex_path, pdf_path)
         pandoc = require_tool("pandoc", "Markdown to LaTeX conversion")
         work_dir.mkdir(parents=True, exist_ok=True)
         project_lock = acquire_project_lock(project_dir, args.command_timeout)
@@ -486,8 +458,8 @@ def main() -> int:
         ]
         if args.no_cover:
             prepare_cmd.append("--no-cover")
-        if args.allow_slide_draft:
-            prepare_cmd.append("--allow-slide-draft")
+        if args.keep_repeated_citations:
+            prepare_cmd.append("--keep-repeated-citations")
         run(prepare_cmd, cwd=project_dir, timeout=args.command_timeout)
 
         prepare_report = work_dir / "prepare_report.json"
@@ -526,39 +498,30 @@ def main() -> int:
         )
 
         postprocess_qa = work_dir / "postprocess_qa.json"
+        postprocess_cmd = [
+            sys.executable, str(postprocess_script), str(tex_path),
+            "--in-place", "--qa", str(postprocess_qa),
+        ]
+        if args.keep_reference_urls:
+            postprocess_cmd.append("--keep-reference-urls")
         run(
-            [
-                sys.executable,
-                str(postprocess_script),
-                str(tex_path),
-                "--in-place",
-                "--qa",
-                str(postprocess_qa),
-            ],
+            postprocess_cmd,
             cwd=project_dir,
             timeout=args.command_timeout,
         )
 
         qa = read_json(postprocess_qa)
-        failures = validate_postprocess_qa(qa)
+        failures = validate_postprocess_qa(qa, args.keep_reference_urls)
         if failures:
             print("Postprocess QA failed: " + "; ".join(failures), file=sys.stderr)
             return 1
 
         if not args.skip_compile:
             compile_tex(tex_path, pdf_path, project_dir, args.command_timeout, args.keep_intermediates)
-            if output_pdf:
-                if not pdf_path.exists():
-                    raise RuntimeError(f"PDF was not found for copy: {pdf_path}")
-                if output_pdf.resolve() != pdf_path.resolve():
-                    atomic_copy(pdf_path, output_pdf)
-                    validate_pdf_file(output_pdf)
-            if not args.keep_intermediates:
-                cleanup_intermediates(tex_path, pdf_path)
 
         summary = {
             "tex": str(tex_path),
-            "pdf": str(pdf_path if not output_pdf else output_pdf),
+            "pdf": str(pdf_path),
             "prepare_report": str(prepare_report),
             "postprocess_qa": str(postprocess_qa),
             "warning_count": len(warnings),

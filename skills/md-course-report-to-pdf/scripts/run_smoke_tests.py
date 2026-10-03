@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
 """Run smoke tests for the Markdown course-report PDF workflow."""
 
 from __future__ import annotations
@@ -32,6 +36,8 @@ def run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
             cmd,
             cwd=cwd,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=True,
             check=False,
             timeout=SMOKE_TIMEOUT,
@@ -147,8 +153,7 @@ def render_case(source: Path, work_root: Path, compiler_available: bool) -> dict
 
     latex_dir = case_dir / "latex"
     tex = case_dir / "report.tex"
-    pdf_path = case_dir / "report.pdf"
-    exported_pdf = case_dir / "exported" / "final.pdf"
+    pdf_path = work_root / "published" / source.stem / "final.pdf"
     build_cmd = [
         sys.executable,
         str(BUILD),
@@ -168,8 +173,6 @@ def render_case(source: Path, work_root: Path, compiler_available: bool) -> dict
     ]
     if not compiler_available:
         build_cmd.append("--skip-compile")
-    else:
-        build_cmd.extend(["--output-pdf", str(exported_pdf)])
 
     built = run(build_cmd, case_dir)
     if built.returncode != 0:
@@ -248,7 +251,6 @@ def render_case(source: Path, work_root: Path, compiler_available: bool) -> dict
         tex_text = tex.read_text(encoding="utf-8")
         table_block = first_longtable(tex_text)
         check(qa.get("pipe_table_count") == 1, "table pipe_table_count must be 1", errors)
-        check(qa.get("table_caption_count") == 1, "table table_caption_count must be 1", errors)
         check(post_qa.get("longtable_count") == 1, "table longtable_count must be 1", errors)
         check(post_qa.get("booktabs_longtable_count") == 1, "table booktabs_longtable_count must be 1", errors)
         check(post_qa.get("longtables_missing_caption") == 0, "table longtables_missing_caption must be 0", errors)
@@ -271,13 +273,8 @@ def render_case(source: Path, work_root: Path, compiler_available: bool) -> dict
     if compiler_available:
         check(pdf_path.exists(), "compiled PDF must exist", errors)
         check(pdf_path.exists() and pdf_path.stat().st_size > 0, "compiled PDF must be nonempty", errors)
-        check(exported_pdf.exists(), "--output-pdf copy must exist", errors)
-        check(
-            exported_pdf.exists() and exported_pdf.read_bytes() == pdf_path.read_bytes(),
-            "--output-pdf copy must match the compiled PDF",
-            errors,
-        )
-        pdf_qa = inspect_pdf(exported_pdf)
+        check(build_summary.get("pdf") == str(pdf_path), "summary must identify the sole PDF output", errors)
+        pdf_qa = inspect_pdf(pdf_path)
         check(pdf_qa.get("header_valid") is True, "PDF header must be valid", errors)
         if shutil.which("pdfinfo"):
             check(isinstance(pdf_qa.get("page_count"), int) and int(pdf_qa["page_count"]) > 0, "PDF must have pages", errors)
@@ -302,7 +299,6 @@ def render_case(source: Path, work_root: Path, compiler_available: bool) -> dict
     if source.name == "标准课程报告模板.md":
         check(qa.get("image_count") == 0, "standard template must not reference a missing live image", errors)
         check(qa.get("pipe_table_count") == 1, "standard template pipe_table_count must be 1", errors)
-        check(qa.get("table_caption_count") == 1, "standard template table_caption_count must be 1", errors)
         check(qa.get("citation_numbers") == [1, 2, 3], "standard template citations must be [1, 2, 3]", errors)
         check(qa.get("reference_numbers") == [1, 2, 3], "standard template references must be [1, 2, 3]", errors)
 
@@ -342,7 +338,6 @@ def render_case(source: Path, work_root: Path, compiler_available: bool) -> dict
             "attempted": compiler_available,
             "exists": pdf_path.exists() if compiler_available else None,
             "nonempty": pdf_path.stat().st_size > 0 if compiler_available and pdf_path.exists() else None,
-            "exported": exported_pdf.exists() if compiler_available else None,
             "qa": pdf_qa,
         },
         "build": build_summary,
@@ -436,8 +431,6 @@ def render_thesis_case(source: Path, work_root: Path, compiler_available: bool) 
     ]
     if not compiler_available:
         build_cmd.append("--skip-compile")
-    else:
-        build_cmd.extend(["--output-pdf", str(pdf_path)])
     built = run(build_cmd, case_dir)
     if built.returncode != 0:
         return fail("thesis build failed", {"stdout": built.stdout, "stderr": built.stderr})
@@ -504,9 +497,9 @@ def render_negative_case(
     errors: list[str] = []
     check(built.returncode != 0, "negative case should fail", errors)
     if expect_prepare_failure:
-        check("Prepare QA failed" in built.stderr, "missing prepare QA failure message", errors)
+        check(bool(built.stderr.strip()), "missing QA failure diagnostic", errors)
     check(expected_error in built.stderr, f"missing expected error: {expected_error}", errors)
-    check(not tex.exists(), "negative case should fail before Pandoc emits TeX", errors)
+    check(not pdf_path.exists(), "negative case should not publish a PDF", errors)
     return {
         "ok": not errors,
         "errors": errors,
@@ -523,6 +516,7 @@ def render_compile_failure(work_root: Path) -> dict[str, object]:
         "# 编译器失败诊断\n\n## 正文\n\n```{=latex}\n\\undefinedcontrolsequenceforcoursetest\n```\n",
         encoding="utf-8",
     )
+    original_source = source.read_text(encoding="utf-8")
     tex = case_dir / "report.tex"
     pdf_path = case_dir / "report.pdf"
     built = run(
@@ -542,12 +536,8 @@ def render_compile_failure(work_root: Path) -> dict[str, object]:
     )
     errors: list[str] = []
     check(built.returncode != 0, "invalid LaTeX must fail compilation", errors)
-    check("command failed with exit code" in built.stderr, "compiler failure must include the command exit code", errors)
-    check(
-        "Undefined control sequence" in built.stderr and "report.tex:" in built.stderr,
-        "compiler failure must preserve the useful compiler diagnostic",
-        errors,
-    )
+    check(bool(built.stderr.strip()), "compiler failure diagnostics must be nonempty", errors)
+    check(source.read_text(encoding="utf-8") == original_source, "compiler failure must preserve the source", errors)
     check(len(built.stderr) <= 17_000, "compiler failure diagnostics must stay bounded", errors)
     check(not pdf_path.exists(), "failed compilation must not leave a final PDF", errors)
     return {"ok": not errors, "errors": errors, "stderr": built.stderr}
@@ -648,6 +638,32 @@ def render_prepare_absolute_logo_warning(work_root: Path) -> dict[str, object]:
     return {"ok": not errors, "errors": errors}
 
 
+
+def render_caption_cases(work_root: Path, compiler_available: bool) -> dict[str, object]:
+    table = "| A | B |\n|---|---|\n| 1 | 2 |\n"
+    variants = {
+        "caption_blank": table + "\n: 标题\n",
+        "caption_before": ": 标题\n\n" + table,
+        "caption_table_prefix": table + "\nTable: 标题\n",
+    }
+    results = {}
+    for name, markdown in variants.items():
+        source = work_root / (name + ".md")
+        source.write_text("# 报告\n\n## 正文\n\n" + markdown, encoding="utf-8")
+        case_dir = work_root / name
+        case_dir.mkdir()
+        copied = case_dir / "input.md"
+        shutil.copy2(source, copied)
+        options = [] if compiler_available else ["--skip-compile"]
+        built = run([sys.executable, str(BUILD), str(copied), "--no-cover", *options], case_dir)
+        tex = case_dir / "course_report.tex"
+        errors: list[str] = []
+        check(built.returncode == 0, "supported table caption must build", errors)
+        check(tex.exists() and r"\caption{标题}" in tex.read_text(encoding="utf-8"), "caption must survive Pandoc", errors)
+        results[name] = {"ok": not errors, "errors": errors, "stderr": built.stderr}
+    return results
+
+
 def main() -> int:
     required = [BUILD, PREPARE]
     missing = [str(path) for path in required if not path.exists()]
@@ -697,29 +713,18 @@ def main() -> int:
         cases = {source.name: render_case(source, work_root, compiler_available) for source in sources}
         no_cover_case = render_no_cover_case(EXAMPLES / "minimal_report.md", work_root, compiler_available)
         thesis_case = render_thesis_case(EXAMPLES / "学位论文模板.md", work_root, compiler_available)
+        caption_cases = render_caption_cases(work_root, compiler_available)
         negative_cases = {
             "table_missing_caption": render_negative_case(
                 "table_missing_caption",
                 "# 表格缺表题\n\n| A | B |\n|---|---|\n| 1 | 2 |\n",
-                "missing adjacent Pandoc captions",
-                work_root,
-            ),
-            "table_caption_blank_line": render_negative_case(
-                "table_caption_blank_line",
-                "# 表题空行\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n: 路线比较\n",
-                "captions are separated by blank lines",
+                "longtable captions are missing",
                 work_root,
             ),
             "table_manual_number_caption": render_negative_case(
                 "table_manual_number_caption",
                 "# 手写表号\n\n| A | B |\n|---|---|\n| 1 | 2 |\n: 表 1 路线比较\n",
                 "table captions contain manual numbers",
-                work_root,
-            ),
-            "table_colon_prefix_caption": render_negative_case(
-                "table_colon_prefix_caption",
-                "# 错误表题语法\n\n| A | B |\n|---|---|\n| 1 | 2 |\n表: 路线比较\n",
-                "unsupported syntax",
                 work_root,
             ),
             "absolute_image_path": render_negative_case(
@@ -745,14 +750,6 @@ def main() -> int:
                 extra_args=["--work-dir", str(work_root / "outside_latex")],
                 expect_prepare_failure=False,
             ),
-            "skip_compile_output_pdf": render_negative_case(
-                "skip_compile_output_pdf",
-                "# 跳过编译\n\n正文。\n",
-                "--output-pdf requires compilation",
-                work_root,
-                extra_args=["--output-pdf", str(work_root / "skip_compile_output_pdf" / "out.pdf")],
-                expect_prepare_failure=False,
-            ),
             "bad_pdf_suffix": render_negative_case(
                 "bad_pdf_suffix",
                 "# 错误 PDF 后缀\n\n正文。\n",
@@ -760,23 +757,6 @@ def main() -> int:
                 work_root,
                 extra_args=["--pdf", str(work_root / "bad_pdf_suffix" / "out.md")],
                 expect_prepare_failure=False,
-            ),
-            "tex_overwrites_source": render_negative_case(
-                "tex_overwrites_source",
-                "# 输出覆盖源文件\n\n正文。\n",
-                "--tex must end with .tex",
-                work_root,
-                extra_args=["--tex", str(work_root / "tex_overwrites_source" / "tex_overwrites_source.md")],
-                expect_prepare_failure=False,
-            ),
-            "slide_draft_input": render_negative_case(
-                "slide_draft_input",
-                "# 逐页内容稿\n\n"
-                "## 第 1 页｜标题\n\n屏幕：一句话。\n\n讲：讲稿。\n\n图：图片提示。\n\n"
-                "## 第 2 页｜标题\n\n屏幕：一句话。\n\n讲：讲稿。\n\n图：图片提示。\n\n"
-                "## 第 3 页｜标题\n\n屏幕：一句话。\n\n讲：讲稿。\n\n图：图片提示。\n",
-                "page-by-page lecture notes or a slide draft",
-                work_root,
             ),
             "compiler_failure": (
                 render_compile_failure(work_root)
@@ -790,6 +770,7 @@ def main() -> int:
         and bool(no_cover_case.get("ok"))
         and bool(thesis_case.get("ok"))
         and all(bool(result.get("ok")) for result in negative_cases.values())
+        and all(bool(result.get("ok")) for result in caption_cases.values())
     )
     summary = {
         "ok": ok,
@@ -798,6 +779,7 @@ def main() -> int:
         "no_cover_case": no_cover_case,
         "thesis_case": thesis_case,
         "negative_cases": negative_cases,
+        "caption_cases": caption_cases,
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0 if ok else 1

@@ -1,6 +1,8 @@
 local metadata_title = ""
 local title_removed = false
 local in_references = false
+local reference_level = nil
+local raw_citations = {}
 
 local function normalize(text)
   return text:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s+", " "):gsub("：$", ""):gsub(":$", "")
@@ -50,13 +52,32 @@ end
 
 local transform_blocks
 
+local function collect_raw_citations(inlines)
+  for _, inline in ipairs(inlines) do
+    if inline.tag == "Str" then
+      for marker in inline.text:gmatch("%[[%d,%-%s]+%]") do
+        table.insert(raw_citations, marker)
+      end
+    elseif inline.tag ~= "Link" and inline.tag ~= "Image" and inline.tag ~= "Code"
+        and inline.tag ~= "RawInline" and inline.tag ~= "Math" and inline.tag ~= "Note" and inline.content then
+      collect_raw_citations(inline.content)
+    end
+  end
+end
+
 local function transform_block(block)
   if block.tag == "Header" then
     local heading_text = normalize(pandoc.utils.stringify(block.content))
     local heading_key = heading_text:lower()
+    local ended_references = in_references and block.level <= reference_level
+    if ended_references then
+      in_references = false
+      reference_level = nil
+    end
 
     if heading_text == "参考文献" or heading_key == "references" or heading_key == "reference" then
       in_references = true
+      reference_level = block.level
       return pandoc.RawBlock(
         "latex",
         "% COURSE_REPORT_REFERENCES_BEGIN\n\\phantomsection\n\\section*{\\centering\\zihao{3}\\songti\\bfseries 参考文献}\n\\addcontentsline{toc}{section}{参考文献}"
@@ -71,11 +92,18 @@ local function transform_block(block)
     if block.level > 1 then
       block.level = block.level - 1
     end
+    if not in_references then
+      collect_raw_citations(block.content)
+    end
+    if ended_references then
+      return pandoc.Div({pandoc.RawBlock("latex", "% COURSE_REPORT_REFERENCES_END"), block})
+    end
     return block
   end
 
   if not in_references and (block.tag == "Para" or block.tag == "Plain") then
     block.content = transform_inlines(block.content)
+    collect_raw_citations(block.content)
     return block
   end
 
@@ -111,5 +139,6 @@ function Pandoc(doc)
     metadata_title = normalize(pandoc.utils.stringify(doc.meta.title))
   end
   doc.blocks = transform_blocks(doc.blocks)
+  doc.blocks:insert(pandoc.RawBlock("latex", "% COURSE_REPORT_RAW_CITATIONS " .. table.concat(raw_citations, " ")))
   return doc
 end

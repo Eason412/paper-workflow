@@ -426,16 +426,16 @@ class BuildRegressionTests(unittest.TestCase):
             output_dir.mkdir()
 
             with self.assertRaisesRegex(RuntimeError, "must be a file path"):
-                build.validate_output_path(output_dir, source, ".pdf", "--output-pdf")
+                build.validate_output_path(output_dir, source, ".pdf", "--pdf")
 
-    def test_pdf_and_output_pdf_may_be_the_same_file(self) -> None:
+    def test_pdf_may_be_placed_outside_source_directory(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / "input.md"
             source.write_text("# title\n", encoding="utf-8")
             pdf = root / "report.pdf"
 
-            build.validate_generated_path_collisions(source, root / "latex", root / "report.tex", pdf, pdf)
+            build.validate_generated_path_collisions(source, root / "latex", root / "report.tex", pdf)
 
     def test_subprocess_timeout_is_bounded_and_explained(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "timed out"):
