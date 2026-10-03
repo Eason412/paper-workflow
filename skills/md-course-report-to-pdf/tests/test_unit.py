@@ -437,14 +437,15 @@ class InputBehaviorTests(unittest.TestCase):
     def test_invalid_inputs_fail_without_publishing_or_changing_source(self):
         for name, markdown, options in (
             ("absolute_image", "# 报告\n\n![图片](/outside/figure.png)\n", []),
-            ("missing_logo", "# 报告\n\n正文。\n", ["--logo", "missing.png"]),
+            ("missing_logo", "# 报告\n\n正文。\n", ["--logo", "missing.png", "--course", "课程", "--student-name", "学生", "--student-id", "001"]),
             ("bad_pdf_suffix", "# 报告\n\n正文。\n", ["--pdf", "result.md"]),
         ):
             with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 source = root / "report.md"
                 source.write_text(markdown, encoding="utf-8")
-                with mock.patch.object(sys, "argv", ["build", str(source), "--no-cover" if name != "missing_logo" else "--skip-compile", "--skip-compile", *options]), \
+                cover_options = ["--no-cover"] if name != "missing_logo" else []
+                with mock.patch.object(sys, "argv", ["build", str(source), *cover_options, "--skip-compile", *options]), \
                      mock.patch.object(build, "require_tool", return_value="unused-pandoc"), \
                      contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()) as diagnostic:
                     result = build.main()
