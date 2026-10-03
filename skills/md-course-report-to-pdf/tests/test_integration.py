@@ -156,7 +156,7 @@ class LuaFilterRegressionTests(unittest.TestCase):
     def test_pandoc_rich_table_caption_gets_continuation(self) -> None:
         tex = self.run_pandoc("| A | B |\n|---|---|\n| 1 | 2 |\n: **方案**对比\n")
         output = post.add_longtable_continuations(tex)
-        self.assertIn(r"\caption[]{\textbf{方案}对比（续表）}", output)
+        self.assertIn(r"\caption*{\textbf{方案}对比（续表）}", output)
         self.assertIn(r"\endfoot", output)
         self.assertIn(r"\endlastfoot", output)
 

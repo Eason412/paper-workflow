@@ -371,7 +371,7 @@ class PostprocessRegressionTests(unittest.TestCase):
         output = post.add_longtable_continuations(source)
         qa = post.qa_report(output, output, "")
 
-        self.assertIn(r"\caption[]{" + caption + "（续表）}", output)
+        self.assertIn(r"\caption*{" + caption + "（续表）}", output)
         self.assertEqual(qa["longtables_missing_endfoot"], 0)
         self.assertEqual(qa["longtables_missing_endlastfoot"], 0)
         self.assertEqual(post.add_longtable_continuations(output), output)

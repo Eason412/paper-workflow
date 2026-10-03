@@ -120,7 +120,10 @@ def inspect_pdf(pdf_path: Path) -> dict[str, object]:
                 if re.search(r"ROW\s+\d{2}", page)
             ]
             if len(table_pages) > 1:
-                result["continued_table_pages_valid"] = all("LONGTABLEQA" in page for page in table_pages[1:])
+                result["continued_table_pages_valid"] = all(
+                    "LONGTABLEQA" in page and not re.search(r"表\s*1[.]1\s*LONGTABLEQA", page)
+                    for page in table_pages[1:]
+                )
     qpdf = shutil.which("qpdf")
     if qpdf:
         inspected = run([qpdf, "--check", str(pdf_path)], pdf_path.parent)
