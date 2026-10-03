@@ -394,6 +394,6 @@ Open a new Agent session and confirm that each installed Skill is discovered. Fo
 
 Retain the checkout at its recorded path. Changes through personal links modify the repository directly. The author edits these sources locally, validates the affected Skill, then commits and pushes; maintenance requirements are in [AGENTS.md (Chinese)](AGENTS.md) and [CONTRIBUTING.md (Chinese)](CONTRIBUTING.md). Setup itself does not perform those Git operations.
 
-After adding a Skill, rerun `scripts/link-skills.sh --dry-run`, obtain approval for newly proposed changes, then run `scripts/link-skills.sh`; on Windows, repeat the equivalent preview and apply procedure. Moving the checkout requires recreating links to its new stable path. Do not delete `skills-backup/` entries without separate authorization.
+After adding, renaming or removing a Skill, rerun `scripts/link-skills.sh --dry-run`, obtain approval for newly proposed changes, then run `scripts/link-skills.sh`, which also removes links into this checkout that no longer resolve; on Windows, repeat the equivalent preview and apply procedure. Moving the checkout requires recreating links to its new stable path. Do not delete `skills-backup/` entries without separate authorization.
 
 **Success criteria:** report checkout and link paths, backup paths, native discovery, selected dependency checks, any sample-rendering results, and unresolved gaps. Distinguish filesystem installation, dependency readiness, visual checks, login completion, and actual paper acquisition.

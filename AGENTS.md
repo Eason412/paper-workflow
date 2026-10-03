@@ -28,7 +28,7 @@
 | 仓库卫生 | 在根目录运行 `PYTHONDONTWRITEBYTECODE=1 uv run --no-project python -m unittest discover -s tests -v` |
 
 - 排版、模板或内容转换变化运行 course-report 的 `uv run scripts/run_smoke_tests.py`，并按影响检查实际 PDF；纯文字修订不要求重跑完整编译。
-- 修改 Skill 规范后，用 `quick_validate.py` 等校验工具检查 frontmatter；README 改动用 doc-sync（doc-workflow 仓库）的 `check_readme.py` 检查链接。
+- 修改 Skill 规范后，用 `quick_validate.py` 等校验工具检查 frontmatter；README 改动用 project-docs（doc-workflow 仓库）的 `check_readme.py` 检查链接。
 - 并行任务按 Skill 或文件划分所有权；主代理负责公共文件、整合验证和范围变化通知，不回退其他执行者改动。
 
 ## 数据与发布
