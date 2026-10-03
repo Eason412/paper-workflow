@@ -325,22 +325,6 @@ def validate_postprocess_qa(qa: dict[str, object], keep_reference_urls: bool = F
         failures.append("longtable columns are not vertically centered")
     if qa.get("table_captions_with_manual_numbers"):
         failures.append("manual table caption numbers remain")
-    if qa.get("toc_section_font_size") != "4":
-        failures.append("TOC level-1 entries are not four-size (官方: 一级标题/致谢/参考文献/附录 4号)")
-    if qa.get("toc_section_is_bold") is not True:
-        failures.append("TOC level-1 entries are not bold (官方: 一级标题加粗)")
-    if qa.get("toc_sub_font_size") != "-4":
-        failures.append("TOC sub-level entries are not small-four")
-    if qa.get("toc_entry_font_sizes") != ["-4", "4"]:
-        failures.append("TOC entry font sizes are not [小4号 sub, 4号 level-1]")
-    if qa.get("toc_uses_shared_numwidth") is not True:
-        failures.append("TOC entries do not use the shared number-width setting")
-    if qa.get("toc_page_width_configured") is not True:
-        failures.append("TOC page-number width/right margin are not configured")
-    if qa.get("cover_fields_use_makebox_centering") is not True:
-        failures.append("cover fields do not use fixed-width centered makebox layout")
-    if qa.get("cover_fields_have_underlines") is not True:
-        failures.append("cover fields do not use equal-width underlined value boxes")
     return failures
 
 

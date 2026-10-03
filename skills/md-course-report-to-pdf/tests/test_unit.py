@@ -5,6 +5,7 @@ import contextlib
 import io
 import json
 import os
+import re
 from pathlib import Path, PureWindowsPath
 import shutil
 import subprocess
@@ -235,6 +236,16 @@ class PrepareRegressionTests(unittest.TestCase):
 
 
 class BuildRegressionTests(unittest.TestCase):
+    def test_pdf_publication_copies_bytes_without_removing_input(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "compiled.pdf"
+            source.write_bytes(b"%PDF-fixture data")
+            destination = root / "published/report.pdf"
+            build.atomic_copy(source, destination)
+            self.assertEqual(destination.read_bytes(), source.read_bytes())
+            self.assertEqual(list(destination.parent.iterdir()), [destination])
+
     def test_command_output_is_bounded_and_preserves_head_and_tail(self) -> None:
         output = build.command_output(
             "stdout-head\n" + "x" * build.MAX_COMMAND_OUTPUT_CHARS,
@@ -423,6 +434,53 @@ class PostprocessRegressionTests(unittest.TestCase):
 
 
 class InputBehaviorTests(unittest.TestCase):
+    def test_invalid_inputs_fail_without_publishing_or_changing_source(self):
+        for name, markdown, options in (
+            ("absolute_image", "# 报告\n\n![图片](/outside/figure.png)\n", []),
+            ("missing_logo", "# 报告\n\n正文。\n", ["--logo", "missing.png"]),
+            ("bad_pdf_suffix", "# 报告\n\n正文。\n", ["--pdf", "result.md"]),
+        ):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                source = root / "report.md"
+                source.write_text(markdown, encoding="utf-8")
+                with mock.patch.object(sys, "argv", ["build", str(source), "--no-cover" if name != "missing_logo" else "--skip-compile", "--skip-compile", *options]), \
+                     mock.patch.object(build, "require_tool", return_value="unused-pandoc"), \
+                     contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()) as diagnostic:
+                    result = build.main()
+                self.assertNotEqual(result, 0)
+                self.assertTrue(diagnostic.getvalue().strip())
+                self.assertEqual(source.read_text(encoding="utf-8"), markdown)
+                self.assertFalse((root / "course_report.pdf").exists())
+
+    def test_outside_work_directory_is_rejected_before_writing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project = root / "project"
+            project.mkdir()
+            source = project / "report.md"
+            source.write_text("# 报告\n", encoding="utf-8")
+            outside = root / "outside"
+            with mock.patch.object(sys, "argv", ["build", str(source), "--no-cover", "--work-dir", str(outside)]), \
+                 contextlib.redirect_stderr(io.StringIO()):
+                result = build.main()
+            self.assertNotEqual(result, 0)
+            self.assertFalse(outside.exists())
+
+    def test_prepare_absolute_logo_reports_existing_asset_outside_project(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "report.md"
+            source.write_text("# 报告\n\n## 正文\n\n正文。", encoding="utf-8")
+            output = root / "latex"
+            with mock.patch.object(sys, "argv", ["prepare", str(source), "--out-dir", str(output), "--logo", str(ROOT / "assets/njust_logo.png")]), contextlib.redirect_stdout(io.StringIO()):
+                code = prepare.main()
+            report = json.loads((output / "prepare_report.json").read_text(encoding="utf-8"))
+            self.assertEqual(code, 0)
+            self.assertTrue(report["cover"]["logo_exists"])
+            self.assertFalse(report["cover"]["logo_inside_project"])
+            self.assertTrue(report["warnings"])
+
     def test_quoted_front_matter_ignores_trailing_comment(self):
         fields, body = prepare.parse_front_matter(
             '---\ncourse: "机器学习" # 课程名\nstudent_id: 00123\n---\n# 报告\n'
@@ -468,3 +526,27 @@ class InputBehaviorTests(unittest.TestCase):
         with self.assertRaises(RuntimeError) as caught:
             build.run([sys.executable, "-c", "import sys; sys.stderr.buffer.write(b'bad byte \\xff'); sys.exit(1)"])
         self.assertIn("bad byte", str(caught.exception))
+
+
+class TemplateRegressionTests(unittest.TestCase):
+    def test_bundled_toc_and_cover_defaults_are_consistent(self):
+        tex = (ROOT / "assets/templates/ctexart-course-report.tex").read_text(encoding="utf-8")
+        def macro(name):
+            match = re.search(r"\\newcommand\{\\" + name + r"\}\{([^\n]*)\}", tex)
+            self.assertIsNotNone(match, name)
+            return match.group(1)
+        chapter_font = macro("reporttocsectionfont")
+        self.assertIn(r"\zihao{4}", chapter_font)
+        self.assertIn(r"\bfseries", chapter_font)
+        self.assertIn(r"\zihao{-4}", macro("reporttocfont"))
+        chapter_entry = tex.split(r"\renewcommand*\l@section", 1)[1].split(r"\renewcommand*\l@subsection", 1)[0]
+        self.assertIn(r"\reporttocsectionfont", chapter_entry)
+        for level in ("section", "subsection", "subsubsection", "paragraph"):
+            entry = tex.split(r"\renewcommand*\l@" + level, 1)[1].split(r"\renewcommand", 1)[0]
+            self.assertIn(r"\reporttocnumwidth", entry)
+        self.assertRegex(tex, r"\\def\\@pnumwidth\{[^}]+\}")
+        self.assertRegex(tex, r"\\def\\@tocrmarg\{[^}]+\}")
+        cover = tex.split(r"\newcommand{\coverfield}", 1)[1].split(r"\newcommand{\covercoursefield}", 1)[0]
+        self.assertIn(r"\makebox[\textwidth][c]", cover)
+        self.assertIn(r"\coverunderline{#2}", cover)
+        self.assertIn(r"\underline{\makebox[\covervaluewidth][c]", tex)

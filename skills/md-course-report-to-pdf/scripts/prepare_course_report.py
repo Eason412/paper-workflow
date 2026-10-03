@@ -19,7 +19,6 @@ KEYWORDS_EN_RE = re.compile(r"^\s*(?:\*\*)?\s*Keywords\s*(?:\*\*)?\s*[：:]\s*(.
 PIPE_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$")
 CITATION_RE = re.compile(r"(?<!\{)[\[［]([\d,\-\s，、–—]+)[\]］]")
 REFERENCE_LABEL_RE = re.compile(r"(?m)^\s*(?:[\[［](\d+)[\]］]|(\d+)[.、])\s+")
-INVALID_TABLE_CAPTION_RE = re.compile(r"^\s*(?:表|图|Table|Figure)\s*[：:]\s+\S+", re.I)
 LINK_DEFINITION_RE = re.compile(r"^\s*\[[^\]]+\]:")
 SLIDE_PAGE_HEADING_RE = re.compile(r"^##\s*第\s*\d+\s*页\s*[｜|:：]")
 SLIDE_FIELD_RE = re.compile(r"^(?:屏幕|讲|图)\s*[：:]")
@@ -148,7 +147,7 @@ def is_url_path(path: str) -> bool:
     return parsed.scheme in {"http", "https"}
 
 
-def resolve_project_asset(path: str, source_dir: Path, allow_absolute: bool = False) -> tuple[str, bool, bool]:
+def resolve_project_asset(path: str, source_dir: Path) -> tuple[str, bool, bool]:
     cleaned = path.strip().strip("<>")
     if not is_url_path(cleaned):
         cleaned = cleaned.split("#", 1)[0].replace(r"\ ", " ")
@@ -156,8 +155,8 @@ def resolve_project_asset(path: str, source_dir: Path, allow_absolute: bool = Fa
         return cleaned, False, False
     candidate = Path(cleaned)
     if candidate.is_absolute():
-        return cleaned, candidate.exists(), allow_absolute
-    resolved = candidate if candidate.is_absolute() else source_dir / candidate
+        return cleaned, candidate.exists(), False
+    resolved = source_dir / candidate
     try:
         resolved_path = resolved.resolve()
         inside_project = resolved_path.relative_to(source_dir.resolve()) is not None
@@ -372,9 +371,11 @@ def build_table_line_set(lines: list[str]) -> set[int]:
         start = int(table["start_line"]) - 1
         end = int(table["end_line"]) - 1
         table_lines.update(range(start, end + 1))
-        caption_idx = end + 1
-        if caption_idx < len(lines) and (is_table_caption(lines[caption_idx]) or INVALID_TABLE_CAPTION_RE.match(lines[caption_idx])):
-            table_lines.add(caption_idx)
+        for caption_idx, step in ((end + 1, 1), (start - 1, -1)):
+            while 0 <= caption_idx < len(lines) and not lines[caption_idx].strip():
+                caption_idx += step
+            if 0 <= caption_idx < len(lines) and is_table_caption(lines[caption_idx]):
+                table_lines.add(caption_idx)
     return table_lines
 
 
@@ -779,11 +780,7 @@ def keyword_count(value: str) -> int:
 
 
 def is_table_caption(line: str) -> bool:
-    return bool(re.match(r"^\s*:\s+\S+", line))
-
-
-def table_caption_has_manual_number(line: str) -> bool:
-    return bool(re.match(r"^\s*(?::|Table:)\s*(表|Table)?\s*\d+(?:\.\d+)?", line, re.I))
+    return bool(re.match(r"^\s*(?::|Table:)\s+\S+", line))
 
 
 def scan_pipe_tables(lines: list[str]) -> dict[str, object]:
@@ -885,8 +882,6 @@ def scan_body(body: str, source_dir: Path) -> dict[str, object]:
     return {
         "image_count": len(image_items),
         "images": image_items,
-        "markdown_image_count": len(markdown_images),
-        "html_image_count": len(html_images),
         "missing_images": [item["path"] for item in image_items if not item["exists"]],
         "unsafe_image_paths": [item["path"] for item in image_items if not item["inside_project"]],
         "captions_with_manual_numbers": captions_with_numbers,

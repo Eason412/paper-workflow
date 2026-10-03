@@ -50,35 +50,6 @@ def split_references(tex: str) -> tuple[str, str]:
     return tex[:start] + tex[end:], tex[start:end]
 
 
-def convert_citations(body: str) -> str:
-    citation_group = re.compile(r"(?:\{\[\}([\d,\-\s，、–—]+)\{\]\}\s*)+")
-
-    def repl(match: re.Match[str]) -> str:
-        nums = re.findall(r"\{\[\}([\d,\-\s，、–—]+)\{\]\}", match.group(0))
-        cleaned = ",".join(
-            part.strip().replace(" ", "").replace("，", ",").replace("、", ",").replace("–", "-").replace("—", "-")
-            for part in nums
-            if part.strip()
-        )
-        return r"\textsupcite{" + cleaned + "}"
-
-    return citation_group.sub(repl, body)
-
-
-def number_display_math(body: str) -> str:
-    pattern = re.compile(r"\\\[(.*?)\\\]", re.S)
-
-    def repl(match: re.Match[str]) -> str:
-        content = match.group(1).strip()
-        if not content:
-            return match.group(0)
-        if r"\begin{" in content or r"\tag{" in content:
-            return match.group(0)
-        return "\\begin{equation}\n" + content + "\n\\end{equation}"
-
-    return pattern.sub(repl, body)
-
-
 def center_longtable_headers(tex: str) -> str:
     def center_plain_header_row(row: str) -> str:
         if r"\begin{minipage}" in row or r"\multicolumn" in row:
@@ -276,26 +247,6 @@ def prose_raw_citations(body: str, tex: str | None = None) -> list[str]:
 
 def qa_report(tex: str, body: str, refs: str) -> dict[str, object]:
     longtables = re.findall(r"\\begin\{longtable\}.*?\\end\{longtable\}", tex, flags=re.S)
-    # 官方规范: 一级 TOC 条目(章/致谢/参考文献/附录)用 4 号加粗, 子级用小 4 号。
-    # 一级条目样式来自 \l@section 引用的 \reporttocsectionfont, 子级来自 \reporttocfont。
-    section_toc_def = re.search(
-        r"\\renewcommand\*?\\l@section.*?(?=\\renewcommand\*?\\l@subsection)",
-        tex,
-        flags=re.S,
-    )
-    section_toc_text = section_toc_def.group(0) if section_toc_def else ""
-    sub_font_body_match = re.search(r"\\newcommand\{\\reporttocfont\}\{([^\n]*)\}", tex)
-    sub_font_body = sub_font_body_match.group(1) if sub_font_body_match else ""
-    section_font_body_match = re.search(r"\\newcommand\{\\reporttocsectionfont\}\{([^\n]*)\}", tex)
-    section_font_body = section_font_body_match.group(1) if section_font_body_match else ""
-    sub_size_match = re.search(r"\\zihao\{([^}]+)\}", sub_font_body)
-    toc_sub_font_size = sub_size_match.group(1) if sub_size_match else None
-    section_styles_l1 = r"\reporttocsectionfont" in section_toc_text
-    section_size_match = re.search(r"\\zihao\{([^}]+)\}", section_font_body)
-    toc_section_font_size = section_size_match.group(1) if (section_size_match and section_styles_l1) else None
-    toc_section_is_bold = bool(r"\bfseries" in section_font_body and section_styles_l1)
-    toc_font_sizes = {size for size in (toc_sub_font_size, toc_section_font_size) if size}
-    cover_uses_makebox = bool(r"\newcommand{\coverfield}" in tex and r"\makebox[\textwidth][c]" in tex)
     # \coverthesisfields 出现一次是宏定义；标题页再调用一次说明渲染了学位论文封面。
     thesis_cover_rendered = len(re.findall(r"\\coverthesisfields\b", tex)) >= 2
     course_cover_rendered = len(re.findall(r"\\coverfields\b", tex)) >= 2
@@ -307,19 +258,11 @@ def qa_report(tex: str, body: str, refs: str) -> dict[str, object]:
             1 for formula in re.findall(r"\\\[(.*?)\\\]", body, flags=re.S)
             if not re.search(r"\\(?:tag|label)\s*\{", formula)
         ),
-        "equation_count": len(re.findall(r"\\begin\{equation\}", tex)),
         "textsupcite_count": len(re.findall(r"\\textsupcite\{", body)),
         "reference_labels": re.findall(r"\{\[\}(\d+)\{\]\}", refs),
         "reference_urls": re.findall(r"https?://\S+", refs),
         "dangling_url_macro": bool(re.search(r"\\url\{\s*(?:[,.;，。；、)]|\n|$)", refs)),
         "longtable_count": len(longtables),
-        "booktabs_longtable_count": len(
-            [
-                table
-                for table in longtables
-                if all(rule in table for rule in (r"\toprule", r"\midrule", r"\bottomrule"))
-            ]
-        ),
         "longtables_missing_caption": sum(1 for table in longtables if r"\caption{" not in table),
         "longtables_missing_endfoot": sum(1 for table in longtables if r"\endfoot" not in table),
         "longtables_missing_endlastfoot": sum(1 for table in longtables if r"\endlastfoot" not in table),
@@ -347,21 +290,8 @@ def qa_report(tex: str, body: str, refs: str) -> dict[str, object]:
             for table in longtables
         ),
         "table_captions_with_manual_numbers": re.findall(r"\\caption(?:\[[^\]]*\])?\{\s*(?:(?:表|Table)\s*)?\d+(?:\.\d+)?[^}]*\}", tex),
-        "toc_section_font_size": toc_section_font_size,
-        "toc_section_is_bold": toc_section_is_bold,
-        "toc_sub_font_size": toc_sub_font_size,
-        "toc_entry_font_sizes": sorted(toc_font_sizes),
-        "toc_uses_shared_numwidth": bool(r"\reporttocnumwidth" in tex),
-        "toc_page_width_configured": bool(re.search(r"\\def\\@pnumwidth\{[^}]+\}.*?\\def\\@tocrmarg\{[^}]+\}", tex, flags=re.S)),
-        "titlepage_uses_top_fill_before_logo": bool(re.search(r"\\begin\{titlepage\}.*?\\vspace\*\{\\fill\}.*?\\includegraphics", tex, flags=re.S)),
-        "cover_fields_use_centered_tabular": bool(r"\newcommand{\coverfields}" in tex and r"\begin{center}" in tex) or cover_uses_makebox,
-        "cover_fields_use_makebox_centering": cover_uses_makebox,
-        "cover_fields_have_underlines": bool(r"\underline{\makebox[\covervaluewidth][c]" in tex),
         "thesis_cover_rendered": thesis_cover_rendered,
         "course_cover_rendered": course_cover_rendered,
-        "cover_course_field_wrap_enabled": bool(
-            re.search(r"\\newcommand\{\\covercoursefield\}[^\n]*\\begin\{minipage\}", tex)
-        ),
     }
 
 
