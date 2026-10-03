@@ -2,7 +2,13 @@ name: Course Report PDF
 
 on:
   push:
+    paths:
+      - "skills/md-course-report-to-pdf/**"
+      - ".github/workflows/pdf.yml"
   pull_request:
+    paths:
+      - "skills/md-course-report-to-pdf/**"
+      - ".github/workflows/pdf.yml"
 
 jobs:
   regression:
