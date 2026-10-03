@@ -144,7 +144,7 @@ def add_longtable_continuations(tex: str) -> str:
         if "（续表）" not in block:
             block = block.replace(
                 r"\endfirsthead",
-                "\\endfirsthead\n\\caption*{" + caption + "（续表）}\\tabularnewline",
+                "\\endfirsthead\n\\caption[]{" + caption + "（续表）}\\tabularnewline",
                 1,
             )
         return block
