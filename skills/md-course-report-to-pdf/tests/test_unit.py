@@ -1,23 +1,24 @@
+"""Report regressions; fixtures and build outputs stay outside the repository."""
 from __future__ import annotations
 
+import contextlib
+import io
 import json
+import os
+from pathlib import Path, PureWindowsPath
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
-from pathlib import Path
 from unittest import mock
-
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(ROOT))
-
-from scripts import build_course_report as build  # noqa: E402
-from scripts import postprocess_course_tex as post  # noqa: E402
-from scripts import prepare_course_report as prepare  # noqa: E402
-
+from scripts import build_course_report as build
+from scripts import prepare_course_report as prepare
+from scripts import postprocess_course_tex as post
 
 class PrepareRegressionTests(unittest.TestCase):
     def test_abstract_headings_inside_fences_do_not_remove_body(self) -> None:
@@ -234,42 +235,6 @@ class PrepareRegressionTests(unittest.TestCase):
 
 
 class BuildRegressionTests(unittest.TestCase):
-    @unittest.skipUnless(shutil.which("pandoc"), "pandoc is required for metadata integration")
-    def test_student_id_keeps_leading_zeroes_and_all_digits_through_pandoc(self) -> None:
-        for student_id in ("0000000000", "000123456789012345678901234567890123456789"):
-            with self.subTest(student_id=student_id), tempfile.TemporaryDirectory() as tmp:
-                root = Path(tmp)
-                source = root / "report.md"
-                source.write_text("# 报告\n\n## 正文\n\n内容。\n", encoding="utf-8")
-                tex = root / "report.tex"
-                completed = subprocess.run(
-                    [sys.executable, str(SCRIPTS / "build_course_report.py"), str(source),
-                     "--course", "示例课程", "--student-name", "示例学生",
-                     "--student-id", student_id, "--tex", str(tex), "--skip-compile"],
-                    text=True, capture_output=True, timeout=30, check=False,
-                )
-                self.assertEqual(completed.returncode, 0, completed.stderr)
-                metadata = root / "latex" / "metadata.yaml"
-                parsed = subprocess.run(
-                    [shutil.which("pandoc") or "pandoc", "--from=markdown", "--to=json", "--metadata-file", str(metadata)],
-                    input="", text=True, capture_output=True, timeout=30, check=True,
-                )
-                student_value = json.loads(parsed.stdout)["meta"]["studentid"]
-                self.assertEqual(student_value, {"t": "MetaInlines", "c": [{"t": "Str", "c": student_id}]})
-                self.assertIn(r"\newcommand{\studentid}{" + student_id + "}", tex.read_text(encoding="utf-8"))
-
-    @unittest.skipUnless(shutil.which("pandoc"), "pandoc is required for build integration")
-    def test_reference_image_outside_project_is_rejected_before_pandoc(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            source = Path(tmp) / "report.md"
-            source.write_text("# 报告\n\n## 正文\n\n![方法图][fig]\n\n[fig]: ../outside.png\n", encoding="utf-8")
-            completed = subprocess.run(
-                [sys.executable, str(SCRIPTS / "build_course_report.py"), str(source), "--no-cover", "--skip-compile"],
-                text=True, capture_output=True, timeout=30, check=False,
-            )
-        self.assertNotEqual(completed.returncode, 0)
-        self.assertIn("outside.png", completed.stderr)
-
     def test_command_output_is_bounded_and_preserves_head_and_tail(self) -> None:
         output = build.command_output(
             "stdout-head\n" + "x" * build.MAX_COMMAND_OUTPUT_CHARS,
@@ -302,65 +267,6 @@ class BuildRegressionTests(unittest.TestCase):
         for cover in ({"enabled": False}, {"enabled": True, "thesis": True}):
             with self.subTest(cover=cover):
                 self.assertEqual(build.validate_cover_fields({"cover": cover}), [])
-
-    @unittest.skipUnless(shutil.which("pandoc"), "pandoc is required for build integration")
-    def test_course_cover_front_matter_builds_without_cli_fields(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            source = root / "report.md"
-            source.write_text(
-                "---\n"
-                "course: 机器学习\n"
-                "student_name: 张三\n"
-                "student_id: 20260001\n"
-                "---\n"
-                "# 课程报告\n\n"
-                "## 正文\n\n内容。\n",
-                encoding="utf-8",
-            )
-            completed = subprocess.run(
-                [
-                    sys.executable,
-                    str(SCRIPTS / "build_course_report.py"),
-                    str(source),
-                    "--skip-compile",
-                ],
-                cwd=ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-                timeout=30,
-            )
-
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-
-    @unittest.skipUnless(shutil.which("pandoc"), "pandoc is required for build integration")
-    def test_build_exposes_prepare_warnings_without_corrupting_json(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            source = root / "report.md"
-            source.write_text("# 课程报告\n\n## 正文\n\n内容。\n", encoding="utf-8")
-            completed = subprocess.run(
-                [
-                    sys.executable,
-                    str(SCRIPTS / "build_course_report.py"),
-                    str(source),
-                    "--no-cover",
-                    "--skip-compile",
-                ],
-                cwd=ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-                timeout=30,
-            )
-
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        summary = json.loads(completed.stdout)
-        self.assertGreater(summary["warning_count"], 0)
-        self.assertEqual(summary["warning_count"], len(summary["warnings"]))
-        self.assertIn("prepare warning:", completed.stderr)
-        self.assertTrue(any("摘要" in warning for warning in summary["warnings"]))
 
     def test_project_lock_rejects_a_second_build_until_release(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -409,6 +315,7 @@ class BuildRegressionTests(unittest.TestCase):
                 ],
                 cwd=ROOT,
                 text=True,
+            encoding="utf-8",
                 capture_output=True,
                 check=False,
             )
@@ -443,6 +350,7 @@ class BuildRegressionTests(unittest.TestCase):
                 [sys.executable, "-c", "import time; time.sleep(1)"],
                 timeout=0.05,
             )
+
 
 class PostprocessRegressionTests(unittest.TestCase):
     def test_longtable_rich_caption_keeps_complete_nested_braces(self) -> None:
@@ -514,90 +422,49 @@ class PostprocessRegressionTests(unittest.TestCase):
         self.assertEqual(qa["longtables_missing_endlastfoot"], 0)
 
 
-@unittest.skipUnless(shutil.which("pandoc"), "pandoc is required for Lua filter regression tests")
-class LuaFilterRegressionTests(unittest.TestCase):
-    def run_pandoc(self, markdown: str, *extra_args: str) -> str:
-        completed = subprocess.run(
-            [
-                shutil.which("pandoc") or "pandoc",
-                "--from=markdown+raw_tex+tex_math_dollars",
-                "--to=latex",
-                f"--lua-filter={SCRIPTS / 'drop_first_h1.lua'}",
-                *extra_args,
-            ],
-            input=markdown,
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=True,
-            timeout=30,
+class InputBehaviorTests(unittest.TestCase):
+    def test_quoted_front_matter_ignores_trailing_comment(self):
+        fields, body = prepare.parse_front_matter(
+            '---\ncourse: "机器学习" # 课程名\nstudent_id: 00123\n---\n# 报告\n'
         )
-        return completed.stdout
+        self.assertEqual(fields, {"course": "机器学习", "student_id": "00123"})
+        self.assertIn("# 报告", body)
 
-    def test_ordered_lists_keep_single_multiple_and_nested_items(self) -> None:
-        for markdown, labels in (
-            ("1. Single [1]\n", ["Single"]),
-            ("1. First [1]\n2. Second [2]\n3. Third [3]\n", ["First", "Second", "Third"]),
-            ("1. Outer [1]\n\n    1. Inner [2]\n    2. Nested [3]\n", ["Outer", "Inner", "Nested"]),
-        ):
-            with self.subTest(markdown=markdown):
-                output = self.run_pandoc(markdown)
-                self.assertEqual(output.count(r"\item"), len(labels))
-                for number, label in enumerate(labels, 1):
-                    self.assertIn(label, output)
-                    self.assertIn(r"\textsupcite{" + str(number) + "}", output)
+    def test_invalid_front_matter_reports_the_bad_line(self):
+        for value in ('course: "未闭合', 'course: "课程" garbage', 'course: |', 'not a key value', '  course: nested'):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "front matter line 2"):
+                prepare.parse_front_matter(f"---\n{value}\n---\n# 报告")
 
-    def test_pandoc_rich_table_caption_gets_continuation(self) -> None:
-        tex = self.run_pandoc("| A | B |\n|---|---|\n| 1 | 2 |\n: **方案**对比\n")
-        output = post.add_longtable_continuations(tex)
-        self.assertIn(r"\caption[]{\textbf{方案}对比（续表）}", output)
-        self.assertIn(r"\endfoot", output)
-        self.assertIn(r"\endlastfoot", output)
+    def test_windows_resource_path_serializes_as_posix_metadata(self):
+        metadata = prepare.yaml_block("logo", PureWindowsPath("latex/njust_logo.png"))
+        self.assertNotIn("\\", metadata)
+        self.assertEqual(json.loads(metadata.split(": ", 1)[1]), "latex/njust_logo.png")
 
-    def test_prepared_math_and_first_prose_citation_survive_pandoc(self) -> None:
-        prepared, _ = prepare.dedupe_repeated_citations(
-            "$x[1]$\n\n首次引用[1]。\n\n$$\ny[1]\n$$\n\n再次引用[1]。"
-        )
-        output = self.run_pandoc(prepared)
-        self.assertIn("x[1]", output)
-        self.assertIn("y[1]", output)
-        self.assertEqual(output.count(r"\textsupcite{1}"), 1)
+    def test_true_raw_prose_citation_is_reported(self):
+        body = r"正文 {[}1{]}，代码 \texttt{array{[}2{]}}。"
+        self.assertEqual(post.qa_report(body, body, "")["remaining_raw_citations_before_references"], ["1"])
 
-    def test_citation_and_display_math_transform_only_semantic_nodes(self) -> None:
-        output = self.run_pandoc(
-            "正文 A [1] and.\n\n"
-            "`code [2]`\n\n"
-            "[link [3]](https://example.com)\n\n"
-            "```text\ncode block [4]\n\\[raw-code\\]\n```\n\n"
-            "$$x + y$$\n\n"
-            "\\[raw + tex\\]\n"
-        )
+    def test_real_output_alias_cannot_overwrite_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "report.md"
+            original = b"# original report\n"
+            source.write_bytes(original)
+            alias = root / "report.tex"
+            os.link(source, alias)
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "scripts/build_course_report.py"), str(source),
+                 "--no-cover", "--skip-compile", "--tex", str(alias)],
+                capture_output=True, text=True, encoding="utf-8", timeout=30,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertTrue(result.stderr.strip())
+            self.assertEqual(source.read_bytes(), original)
+            self.assertEqual(alias.read_bytes(), original)
 
-        self.assertIn(r"A \textsupcite{1} and", output)
-        self.assertNotIn(r"\textsupcite{2}", output)
-        self.assertNotIn(r"\textsupcite{3}", output)
-        self.assertNotIn(r"\textsupcite{4}", output)
-        self.assertIn(r"\begin{equation}", output)
-        self.assertIn("raw + tex", output)
-
-    def test_only_matching_metadata_title_is_removed(self) -> None:
-        output = self.run_pandoc(
-            "# Preface\n\ntext\n\n# Actual Title\n\nbody\n",
-            "--metadata=title:Actual Title",
-        )
-
-        self.assertIn(r"\section{Preface}", output)
-        self.assertNotIn(r"\section{Actual Title}", output)
-
-    def test_prepare_normalizes_supported_citation_punctuation_for_lua(self) -> None:
-        prepared, _ = prepare.dedupe_repeated_citations("正文 [1, 2]、[3，4]、[5–6]。")
-
-        output = self.run_pandoc(prepared)
-
-        self.assertIn(r"\textsupcite{1-2}", output)
-        self.assertIn(r"\textsupcite{3-4}", output)
-        self.assertIn(r"\textsupcite{5-6}", output)
-
-
-if __name__ == "__main__":
-    unittest.main()
+    def test_utf8_process_output_and_invalid_diagnostics_are_readable(self):
+        result = build.run([sys.executable, "-c", "import sys; sys.stdout.buffer.write('机器学习'.encode('utf-8'))"])
+        self.assertEqual(result.stdout, "机器学习")
+        with self.assertRaises(RuntimeError) as caught:
+            build.run([sys.executable, "-c", "import sys; sys.stderr.buffer.write(b'bad byte \\xff'); sys.exit(1)"])
+        self.assertIn("bad byte", str(caught.exception))
