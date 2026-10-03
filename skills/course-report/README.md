@@ -168,6 +168,29 @@ uv run scripts/run_smoke_tests.py
 
 最终 PDF 应检查封面、摘要、目录、正文、跨页表格和参考文献页。QA 负责结构检查，参考文献真实性与正文内容仍需来源核验。
 
+## 脚本结构
+
+三个命令入口保持原路径；安装时保留完整 `scripts/` 目录。模块按职责单向依赖，入口负责串联各步骤。
+
+| 模块 | 职责 |
+| --- | --- |
+| [prepare_course_report.py](scripts/prepare_course_report.py) | 预处理入口、步骤编排和产物写入 |
+| [report_metadata.py](scripts/report_metadata.py) | front matter、摘要、标题和元数据序列化 |
+| [markdown_context.py](scripts/markdown_context.py) | 代码、表格、链接、公式和注释的上下文屏蔽 |
+| [report_citations.py](scripts/report_citations.py) | 参考文献分区、数字引用收集、归一化和去重 |
+| [report_assets.py](scripts/report_assets.py) | 图片路径解析和 Markdown QA 汇总 |
+| [build_course_report.py](scripts/build_course_report.py) | 构建入口、封面资源选择和阶段编排 |
+| [build_runtime.py](scripts/build_runtime.py) | 命令执行、路径检查、锁、编译和 PDF 发布 |
+| [build_qa.py](scripts/build_qa.py) | 封面字段与预处理、后处理 QA 验证 |
+| [postprocess_course_tex.py](scripts/postprocess_course_tex.py) | LaTeX 后处理与结构 QA |
+| [run_smoke_tests.py](scripts/run_smoke_tests.py) | 冒烟入口、环境检查和结果汇总 |
+| [smoke_cases.py](scripts/smoke_cases.py) | 冒烟输入、构建用例和输出验证 |
+| [smoke_pdf.py](scripts/smoke_pdf.py) | PDF 页数、纸型、字体、图片和长表续页检查 |
+| [smoke_runtime.py](scripts/smoke_runtime.py) | 冒烟路径、命令执行和结果检查支持 |
+| [drop_first_h1.lua](scripts/drop_first_h1.lua) | Pandoc 标题、引用和公式转换 |
+
+Python 模块根据 `__package__` 选择包内相对导入或同目录导入，同时支持按路径运行脚本和 `from scripts import ...`。测试直接调用所属职责模块的函数；替换命令执行等依赖时，patch 指向调用方实际查找的模块。
+
 ## 许可证与反馈
 
 原创代码、模板、示例与文档保留 [MIT License](LICENSE)。校徽和官方格式资料另见 [第三方材料声明](THIRD_PARTY_NOTICES.md)。

@@ -20,6 +20,11 @@ sys.path.insert(0, str(ROOT))
 from scripts import build_course_report as build
 from scripts import prepare_course_report as prepare
 from scripts import postprocess_course_tex as post
+from scripts import build_qa
+from scripts import build_runtime
+from scripts import report_assets
+from scripts import report_citations
+from scripts import report_metadata
 
 class PrepareRegressionTests(unittest.TestCase):
     def test_abstract_headings_inside_fences_do_not_remove_body(self) -> None:
@@ -27,14 +32,14 @@ class PrepareRegressionTests(unittest.TestCase):
             closing = fence.removesuffix("markdown")
             lines = ["# 报告", "## 方法", fence, "## 摘要", "示例代码", "```", closing, "保留正文"]
             with self.subTest(fence=fence):
-                output, metadata, _ = prepare.extract_abstract(lines)
+                output, metadata, _ = report_metadata.extract_abstract(lines)
                 self.assertEqual(output, lines)
                 self.assertEqual(metadata, {})
 
     def test_real_abstract_preserves_code_headings_and_keyword_examples(self) -> None:
         lines = ["# 报告", "## 摘要", "真实摘要", "```markdown", "## 方法", "关键词：示例", "```", "关键词：报告", "## 正文", "正文内容"]
 
-        output, metadata, _ = prepare.extract_abstract(lines)
+        output, metadata, _ = report_metadata.extract_abstract(lines)
 
         self.assertEqual(output, ["# 报告", "## 正文", "正文内容"])
         self.assertIn("## 方法\n关键词：示例", metadata["abstract_zh"])
@@ -47,16 +52,16 @@ class PrepareRegressionTests(unittest.TestCase):
                     prose = "首次正文引用[1]。"
                     parts = [formula, prose] if formula_first else [prose, formula]
                     body = "\n\n".join(parts) + "\n\n再次引用[1]。"
-                    deduped, report = prepare.dedupe_repeated_citations(body)
+                    deduped, report = report_citations.dedupe_repeated_citations(body)
                     self.assertIn(formula, deduped)
                     self.assertIn(prose, deduped)
                     self.assertEqual(report["removed_marker_count"], 1)
-                    self.assertEqual(prepare.collect_body_citations(formula), [])
-                    self.assertEqual(prepare.collect_invalid_body_citations(formula.replace("[1]", "[1-3-5]")), [])
+                    self.assertEqual(report_citations.collect_body_citations(formula), [])
+                    self.assertEqual(report_citations.collect_invalid_body_citations(formula.replace("[1]", "[1-3-5]")), [])
 
     def test_escaped_currency_does_not_hide_citations(self) -> None:
         body = r"价格 \$5 引用[1]，另一个 \$6 引用[2]。"
-        self.assertEqual(prepare.collect_body_citations(body), [1, 2])
+        self.assertEqual(report_citations.collect_body_citations(body), [1, 2])
 
     def test_reference_images_share_inline_image_path_checks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -69,25 +74,25 @@ class PrepareRegressionTests(unittest.TestCase):
                 ("![方法图][FIG name]", "[fig   name]: figure.png"),
             ):
                 with self.subTest(image=image):
-                    qa = prepare.scan_body(image + "\n\n" + definition, root)
+                    qa = report_assets.scan_body(image + "\n\n" + definition, root)
                     self.assertEqual(qa["image_count"], 1)
                     self.assertEqual(qa["missing_images"], [])
                     self.assertEqual(qa["unsafe_image_paths"], [])
                     self.assertEqual(qa["images"][0]["path"], "figure.png")
 
-            qa = prepare.scan_body("![图 1 方法图][fig]\n\n[fig]: ../outside.png", root)
+            qa = report_assets.scan_body("![图 1 方法图][fig]\n\n[fig]: ../outside.png", root)
             self.assertEqual(qa["unsafe_image_paths"], ["../outside.png"])
             self.assertEqual(qa["missing_images"], ["../outside.png"])
             self.assertEqual(qa["captions_with_manual_numbers"], ["图 1 方法图"])
 
     def test_fenced_reference_image_definition_does_not_create_an_image(self) -> None:
         body = "![方法图][fig]\n\n```markdown\n[fig]: ../outside.png\n```"
-        self.assertEqual(prepare.scan_body(body, ROOT)["image_count"], 0)
+        self.assertEqual(report_assets.scan_body(body, ROOT)["image_count"], 0)
 
     def test_code_block_h1_is_not_used_as_title_or_deleted(self) -> None:
         lines = ["```python", "# Fake code", "```", "## 正文", "内容。"]
 
-        output, title, warnings = prepare.prepare_body(lines)
+        output, title, warnings = report_metadata.prepare_body(lines)
 
         self.assertEqual(output, lines)
         self.assertIsNone(title)
@@ -106,7 +111,7 @@ class PrepareRegressionTests(unittest.TestCase):
             )
         lines.append("```")
 
-        result = prepare.detect_slide_draft(lines)
+        result = report_metadata.detect_slide_draft(lines)
 
         self.assertFalse(result["detected"])
         self.assertEqual(result["page_heading_count"], 0)
@@ -117,7 +122,7 @@ class PrepareRegressionTests(unittest.TestCase):
             root = Path(tmp)
             image = root / "figure.png"
             image.write_bytes(b"png fixture")
-            qa = prepare.scan_body(
+            qa = report_assets.scan_body(
                 '![figure](figure.png "optional title")\n\n![again](figure.png#preview)\n',
                 root,
             )
@@ -129,7 +134,7 @@ class PrepareRegressionTests(unittest.TestCase):
     def test_malformed_citation_range_is_reported(self) -> None:
         body = "正文引用[1-3-5]。\n\n## 参考文献\n\n[1] A.\n[2] B.\n[3] C.\n"
 
-        qa = prepare.scan_body(body, ROOT)
+        qa = report_assets.scan_body(body, ROOT)
 
         self.assertEqual(qa["invalid_citation_markers"], ["[1-3-5]"])
         self.assertEqual(qa["citation_numbers"], [])
@@ -137,17 +142,17 @@ class PrepareRegressionTests(unittest.TestCase):
     def test_deduplication_preserves_unrelated_double_spaces(self) -> None:
         body = "首次引用[1]。\n\nsecond  keep  [1]  spacing\n\n## 参考文献\n\n[1] A.\n"
 
-        deduped, report = prepare.dedupe_repeated_citations(body)
+        deduped, report = report_citations.dedupe_repeated_citations(body)
 
         self.assertEqual(report["removed_marker_count"], 1)
         self.assertIn("second  keep", deduped)
 
     def test_nested_link_label_never_controls_citation_deduplication(self) -> None:
         references = "\n\n## References\n\n[1] Ref.\n"
-        link_after, _ = prepare.dedupe_repeated_citations(
+        link_after, _ = report_citations.dedupe_repeated_citations(
             "正文引用[1]，再看 [link [1]](https://example.com/a_(b))." + references
         )
-        link_before, _ = prepare.dedupe_repeated_citations(
+        link_before, _ = report_citations.dedupe_repeated_citations(
             "先看 [link [1]](https://example.com/a_(b))，再正文引用[1]." + references
         )
 
@@ -159,11 +164,11 @@ class PrepareRegressionTests(unittest.TestCase):
     def test_adjacent_numeric_citations_are_not_treated_as_reference_links(self) -> None:
         body = "正文 [1][2]。\n\n## References\n\n[1] A.\n[2] B.\n"
 
-        deduped, report = prepare.dedupe_repeated_citations(body)
+        deduped, report = report_citations.dedupe_repeated_citations(body)
 
         self.assertIn("[1][2]", deduped)
         self.assertEqual(report["removed_marker_count"], 0)
-        self.assertEqual(prepare.collect_body_citations(deduped.split("## References", 1)[0]), [1, 2])
+        self.assertEqual(report_citations.collect_body_citations(deduped.split("## References", 1)[0]), [1, 2])
 
     def test_html_comments_do_not_participate_in_citation_deduplication(self) -> None:
         """HTML comments must not own first-citation position or affect QA."""
@@ -175,40 +180,40 @@ class PrepareRegressionTests(unittest.TestCase):
                 prose = "首次正文引用[1]。"
                 parts = [comment, prose] if comment_first else [prose, comment]
                 body = "\n\n".join(parts) + "\n\n再次引用[1]。"
-                deduped, report = prepare.dedupe_repeated_citations(body)
+                deduped, report = report_citations.dedupe_repeated_citations(body)
                 self.assertIn(comment, deduped)
                 self.assertIn(prose, deduped)
                 self.assertEqual(report["removed_marker_count"], 1)
-                self.assertEqual(prepare.collect_body_citations(body), [1])
+                self.assertEqual(report_citations.collect_body_citations(body), [1])
 
     def test_multiline_html_comment_does_not_hide_citations(self) -> None:
         body = "<!-- 第一行 [1]\n第二行 -->\n\n正文引用[1]。\n\n再次引用[2]。\n\n## References\n\n[1] A.\n[2] B.\n"
 
-        deduped, report = prepare.dedupe_repeated_citations(body)
+        deduped, report = report_citations.dedupe_repeated_citations(body)
 
         self.assertIn("正文引用[1]。", deduped)
         self.assertIn("再次引用[2]。", deduped)
         self.assertEqual(report["removed_marker_count"], 0)
-        self.assertEqual(prepare.collect_body_citations(deduped.split("## References", 1)[0]), [1, 2])
+        self.assertEqual(report_citations.collect_body_citations(deduped.split("## References", 1)[0]), [1, 2])
 
     def test_comment_inside_code_does_not_swallow_following_citation(self) -> None:
         body = "```html\n<!-- [1] -->\n```\n\n正文引用[1]。\n\n再次引用[2]。\n\n## References\n\n[1] A.\n[2] B.\n"
 
-        deduped, report = prepare.dedupe_repeated_citations(body)
+        deduped, report = report_citations.dedupe_repeated_citations(body)
 
         self.assertIn("正文引用[1]。", deduped)
         self.assertIn("再次引用[2]。", deduped)
         self.assertEqual(report["removed_marker_count"], 0)
-        self.assertEqual(prepare.collect_body_citations(deduped.split("## References", 1)[0]), [1, 2])
+        self.assertEqual(report_citations.collect_body_citations(deduped.split("## References", 1)[0]), [1, 2])
 
     def test_comment_with_unpaired_math_delimiter_does_not_hide_citations(self) -> None:
         body = "<!-- 未配对 $x[1] -->\n\n正文引用[1]。\n\n## References\n\n[1] A.\n"
 
-        deduped, report = prepare.dedupe_repeated_citations(body)
+        deduped, report = report_citations.dedupe_repeated_citations(body)
 
         self.assertIn("正文引用[1]。", deduped)
         self.assertEqual(report["removed_marker_count"], 0)
-        self.assertEqual(prepare.collect_body_citations(deduped.split("## References", 1)[0]), [1])
+        self.assertEqual(report_citations.collect_body_citations(deduped.split("## References", 1)[0]), [1])
 
     def test_comment_delimiters_precede_inline_code_and_math_masking(self) -> None:
         for body in (
@@ -218,21 +223,21 @@ class PrepareRegressionTests(unittest.TestCase):
             "代码 ``示例 ` <!--`` 与正文引用[1]。",
         ):
             with self.subTest(body=body):
-                self.assertEqual(prepare.collect_body_citations(body), [1])
-                transformed, _ = prepare.dedupe_repeated_citations(body + "\n\n再次引用[1]。")
+                self.assertEqual(report_citations.collect_body_citations(body), [1])
+                transformed, _ = report_citations.dedupe_repeated_citations(body + "\n\n再次引用[1]。")
                 self.assertIn("正文引用[1]", transformed)
                 self.assertIn("再次引用。", transformed)
 
     def test_escaped_comment_opening_remains_visible_prose(self) -> None:
         body = r"字面量 \<!-- [1] -->，正文引用[1]。"
-        transformed, _ = prepare.dedupe_repeated_citations(body)
+        transformed, _ = report_citations.dedupe_repeated_citations(body)
         self.assertIn(r"\<!-- [1] -->", transformed)
         self.assertIn("正文引用。", transformed)
 
     def test_commented_bibliography_is_not_a_real_reference_section(self) -> None:
         body = "<!--\n## References\n[1] Hidden reference\n-->\n\n正文引用[1]。"
-        self.assertEqual(prepare.split_reference_section(body), (body, ""))
-        self.assertEqual(prepare.extract_reference_numbers(body), [])
+        self.assertEqual(report_citations.split_reference_section(body), (body, ""))
+        self.assertEqual(report_citations.extract_reference_numbers(body), [])
 
 
     def test_reference_section_keeps_subheadings_and_ends_at_next_section(self) -> None:
@@ -240,8 +245,8 @@ class PrepareRegressionTests(unittest.TestCase):
             "# 报告", "## 正文", "引用[1][2]。", "## 参考文献",
             "### 中文文献", "[1] A.", "### 英文文献", "[2] B.", "## 附录", "附录。",
         ]
-        self.assertEqual(prepare.reference_section_bounds(lines), (3, 8))
-        self.assertEqual(prepare.reference_section_bounds(lines[:8]), (3, 8))
+        self.assertEqual(report_citations.reference_section_bounds(lines), (3, 8))
+        self.assertEqual(report_citations.reference_section_bounds(lines[:8]), (3, 8))
 
 
 class BuildRegressionTests(unittest.TestCase):
@@ -251,17 +256,17 @@ class BuildRegressionTests(unittest.TestCase):
             source = root / "compiled.pdf"
             source.write_bytes(b"%PDF-fixture data")
             destination = root / "published/report.pdf"
-            build.atomic_copy(source, destination)
+            build_runtime.atomic_copy(source, destination)
             self.assertEqual(destination.read_bytes(), source.read_bytes())
             self.assertEqual(list(destination.parent.iterdir()), [destination])
 
     def test_command_output_is_bounded_and_preserves_head_and_tail(self) -> None:
-        output = build.command_output(
-            "stdout-head\n" + "x" * build.MAX_COMMAND_OUTPUT_CHARS,
-            "y" * build.MAX_COMMAND_OUTPUT_CHARS + "\nstderr-tail",
+        output = build_runtime.command_output(
+            "stdout-head\n" + "x" * build_runtime.MAX_COMMAND_OUTPUT_CHARS,
+            "y" * build_runtime.MAX_COMMAND_OUTPUT_CHARS + "\nstderr-tail",
         )
 
-        self.assertLessEqual(len(output), build.MAX_COMMAND_OUTPUT_CHARS)
+        self.assertLessEqual(len(output), build_runtime.MAX_COMMAND_OUTPUT_CHARS)
         self.assertTrue(output.startswith("[stdout]\nstdout-head"))
         self.assertTrue(output.endswith("stderr-tail"))
         self.assertRegex(output, r"\.\.\. \d+ characters omitted \.\.\.")
@@ -276,42 +281,42 @@ class BuildRegressionTests(unittest.TestCase):
                 "studentid": "20260001",
             }
         }
-        self.assertEqual(build.validate_cover_fields(course_cover), [])
+        self.assertEqual(build_qa.validate_cover_fields(course_cover), [])
 
         missing = {"cover": {"enabled": True, "thesis": False}}
         self.assertEqual(
-            build.validate_cover_fields(missing),
+            build_qa.validate_cover_fields(missing),
             ["course, student name, and student ID are required for a course cover"],
         )
 
         for cover in ({"enabled": False}, {"enabled": True, "thesis": True}):
             with self.subTest(cover=cover):
-                self.assertEqual(build.validate_cover_fields({"cover": cover}), [])
+                self.assertEqual(build_qa.validate_cover_fields({"cover": cover}), [])
 
     def test_project_lock_rejects_a_second_build_until_release(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)
-            first = build.acquire_project_lock(project, timeout=0.1)
+            first = build_runtime.acquire_project_lock(project, timeout=0.1)
             try:
                 with self.assertRaisesRegex(RuntimeError, "another build still holds"):
-                    build.acquire_project_lock(project, timeout=0.01)
+                    build_runtime.acquire_project_lock(project, timeout=0.01)
             finally:
                 first.close()
 
-            released = build.acquire_project_lock(project, timeout=0.1)
+            released = build_runtime.acquire_project_lock(project, timeout=0.1)
             released.close()
 
     def test_pandoc_highlight_flag_tracks_installed_cli(self) -> None:
         modern_help = mock.Mock(stdout="--syntax-highlighting=STYLE\n")
         legacy_help = mock.Mock(stdout="--no-highlight\n")
 
-        with mock.patch.object(build, "run", return_value=modern_help):
+        with mock.patch.object(build_runtime, "run", return_value=modern_help):
             self.assertEqual(
-                build.pandoc_no_highlight_arg("pandoc"),
+                build_runtime.pandoc_no_highlight_arg("pandoc"),
                 "--syntax-highlighting=none",
             )
-        with mock.patch.object(build, "run", return_value=legacy_help):
-            self.assertEqual(build.pandoc_no_highlight_arg("pandoc"), "--no-highlight")
+        with mock.patch.object(build_runtime, "run", return_value=legacy_help):
+            self.assertEqual(build_runtime.pandoc_no_highlight_arg("pandoc"), "--no-highlight")
 
     def test_source_cannot_collide_with_generated_report_body(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -353,7 +358,7 @@ class BuildRegressionTests(unittest.TestCase):
             output_dir.mkdir()
 
             with self.assertRaisesRegex(RuntimeError, "must be a file path"):
-                build.validate_output_path(output_dir, source, ".pdf", "--pdf")
+                build_runtime.validate_output_path(output_dir, source, ".pdf", "--pdf")
 
     def test_pdf_may_be_placed_outside_source_directory(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -362,11 +367,11 @@ class BuildRegressionTests(unittest.TestCase):
             source.write_text("# title\n", encoding="utf-8")
             pdf = root / "report.pdf"
 
-            build.validate_generated_path_collisions(source, root / "latex", root / "report.tex", pdf)
+            build_runtime.validate_generated_path_collisions(source, root / "latex", root / "report.tex", pdf)
 
     def test_subprocess_timeout_is_bounded_and_explained(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "timed out"):
-            build.run(
+            build_runtime.run(
                 [sys.executable, "-c", "import time; time.sleep(1)"],
                 timeout=0.05,
             )
@@ -455,7 +460,7 @@ class InputBehaviorTests(unittest.TestCase):
                 source.write_text(markdown, encoding="utf-8")
                 cover_options = ["--no-cover"] if name != "missing_logo" else []
                 with mock.patch.object(sys, "argv", ["build", str(source), *cover_options, "--skip-compile", *options]), \
-                     mock.patch.object(build, "require_tool", return_value="unused-pandoc"), \
+                     mock.patch.object(build_runtime, "require_tool", return_value="unused-pandoc"), \
                      contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()) as diagnostic:
                     result = build.main()
                 self.assertNotEqual(result, 0)
@@ -492,7 +497,7 @@ class InputBehaviorTests(unittest.TestCase):
             self.assertTrue(report["warnings"])
 
     def test_quoted_front_matter_ignores_trailing_comment(self):
-        fields, body = prepare.parse_front_matter(
+        fields, body = report_metadata.parse_front_matter(
             '---\ncourse: "机器学习" # 课程名\nstudent_id: 00123\n---\n# 报告\n'
         )
         self.assertEqual(fields, {"course": "机器学习", "student_id": "00123"})
@@ -501,10 +506,10 @@ class InputBehaviorTests(unittest.TestCase):
     def test_invalid_front_matter_reports_the_bad_line(self):
         for value in ('course: "未闭合', 'course: "课程" garbage', 'course: |', 'not a key value', '  course: nested'):
             with self.subTest(value=value), self.assertRaisesRegex(ValueError, "front matter line 2"):
-                prepare.parse_front_matter(f"---\n{value}\n---\n# 报告")
+                report_metadata.parse_front_matter(f"---\n{value}\n---\n# 报告")
 
     def test_windows_resource_path_serializes_as_posix_metadata(self):
-        metadata = prepare.yaml_block("logo", PureWindowsPath("latex/njust_logo.png"))
+        metadata = report_metadata.yaml_block("logo", PureWindowsPath("latex/njust_logo.png"))
         self.assertNotIn("\\", metadata)
         self.assertEqual(json.loads(metadata.split(": ", 1)[1]), "latex/njust_logo.png")
 
@@ -531,10 +536,10 @@ class InputBehaviorTests(unittest.TestCase):
             self.assertEqual(alias.read_bytes(), original)
 
     def test_utf8_process_output_and_invalid_diagnostics_are_readable(self):
-        result = build.run([sys.executable, "-c", "import sys; sys.stdout.buffer.write('机器学习'.encode('utf-8'))"])
+        result = build_runtime.run([sys.executable, "-c", "import sys; sys.stdout.buffer.write('机器学习'.encode('utf-8'))"])
         self.assertEqual(result.stdout, "机器学习")
         with self.assertRaises(RuntimeError) as caught:
-            build.run([sys.executable, "-c", "import sys; sys.stderr.buffer.write(b'bad byte \\xff'); sys.exit(1)"])
+            build_runtime.run([sys.executable, "-c", "import sys; sys.stderr.buffer.write(b'bad byte \\xff'); sys.exit(1)"])
         self.assertIn("bad byte", str(caught.exception))
 
 

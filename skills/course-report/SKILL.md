@@ -41,3 +41,5 @@ uv run "$SKILL_DIR/scripts/build_course_report.py" report.md \
 读取 stdout JSON 的 `warnings`，以及 `latex/prepare_report.json`、`latex/postprocess_qa.json`；失败时修正对应输入或实现。
 版式变化后检查实际 PDF 的封面、摘要、目录、正文、跨页表格和参考文献，结构 QA 不能替代目视检查。
 修改脚本或模板后运行 `uv run "$SKILL_DIR/scripts/run_smoke_tests.py"`，再用于真实报告。
+
+入口脚本保留在 `scripts/prepare_course_report.py`、`scripts/build_course_report.py` 和 `scripts/run_smoke_tests.py`；同目录的职责模块需随 Skill 一并安装。模块职责与两种加载方式见 [脚本结构](README.md#脚本结构)。

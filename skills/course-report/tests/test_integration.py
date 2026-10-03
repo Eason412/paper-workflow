@@ -19,6 +19,8 @@ sys.path.insert(0, str(ROOT))
 from scripts import build_course_report as build
 from scripts import prepare_course_report as prepare
 from scripts import postprocess_course_tex as post
+from scripts import build_runtime
+from scripts import report_citations
 
 if os.environ.get("MD_COURSE_REPORT_REQUIRE_PANDOC") == "1" and not shutil.which("pandoc"):
     raise RuntimeError("Pandoc is required for CI integration tests")
@@ -161,7 +163,7 @@ class LuaFilterRegressionTests(unittest.TestCase):
         self.assertIn(r"\endlastfoot", output)
 
     def test_prepared_math_and_first_prose_citation_survive_pandoc(self) -> None:
-        prepared, _ = prepare.dedupe_repeated_citations(
+        prepared, _ = report_citations.dedupe_repeated_citations(
             "$x[1]$\n\n首次引用[1]。\n\n$$\ny[1]\n$$\n\n再次引用[1]。"
         )
         output = self.run_pandoc(prepared)
@@ -196,7 +198,7 @@ class LuaFilterRegressionTests(unittest.TestCase):
         self.assertNotIn(r"\section{Actual Title}", output)
 
     def test_prepare_normalizes_supported_citation_punctuation_for_lua(self) -> None:
-        prepared, _ = prepare.dedupe_repeated_citations("正文 [1, 2]、[3，4]、[5–6]。")
+        prepared, _ = report_citations.dedupe_repeated_citations("正文 [1, 2]、[3，4]、[5–6]。")
 
         output = self.run_pandoc(prepared)
 
@@ -313,7 +315,7 @@ class ReportBehaviorTests(unittest.TestCase):
                 unrelated.write_bytes(b"%PDF-unrelated")
                 pdf = root / "report.pdf"
                 pdf.write_bytes(b"%PDF-previous")
-                original_run = build.run
+                original_run = build_runtime.run
                 original_which = shutil.which
                 def compiler_run(cmd, cwd=None, timeout=180):
                     if cmd[0] == "fixture-tectonic":
@@ -324,8 +326,8 @@ class ReportBehaviorTests(unittest.TestCase):
                         return subprocess.CompletedProcess(cmd, 0, "compiled", "")
                     return original_run(cmd, cwd=cwd, timeout=timeout)
                 with mock.patch.object(sys, "argv", ["build", str(source), "--no-cover", "--tex", "report.tex", "--pdf", "report.pdf"]), \
-                     mock.patch.object(build.shutil, "which", side_effect=lambda name: "fixture-tectonic" if name == "tectonic" else original_which(name)), \
-                     mock.patch.object(build, "run", side_effect=compiler_run), \
+                     mock.patch.object(build_runtime.shutil, "which", side_effect=lambda name: "fixture-tectonic" if name == "tectonic" else original_which(name)), \
+                     mock.patch.object(build_runtime, "run", side_effect=compiler_run), \
                      contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                     code = build.main()
                 self.assertEqual(code, 0 if succeeds else 1)
