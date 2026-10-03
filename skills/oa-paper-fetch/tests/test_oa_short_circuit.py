@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from offline_support import OfflineTestCase
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
@@ -12,7 +13,7 @@ sys.path.insert(0, str(ROOT))
 import oa_fetch  # noqa: E402
 
 
-class OaShortCircuitTests(unittest.TestCase):
+class OaShortCircuitTests(OfflineTestCase):
     def _item(self, *, url=None, title=None, state_filename=None):
         item = {
             "id": "row-1",

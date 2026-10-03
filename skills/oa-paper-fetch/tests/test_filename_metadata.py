@@ -3,6 +3,7 @@ import hashlib
 import json
 import sys
 import unittest
+from offline_support import OfflineTestCase
 import xml.etree.ElementTree as ET
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
@@ -34,7 +35,7 @@ ARXIV_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
-class FilenameMetadataTests(unittest.TestCase):
+class FilenameMetadataTests(OfflineTestCase):
     def test_noncanonical_metadata_filename_respects_utf8_byte_limit(self):
         filename = oa_fetch.metadata_filename(
             {"year": 2026, "first_author": "张", "title": "论文" * 200},
@@ -87,8 +88,8 @@ class FilenameMetadataTests(unittest.TestCase):
             "urls": ["https://arxiv.org/pdf/1810.04805v2.pdf"],
             "score": 1.0,
         }
-        with mock.patch.object(oa_fetch, "arxiv_id_lookup", return_value=meta):
-            result = oa_fetch.resolve_item(item, Path("/tmp/papers"), 5, False, True)
+        with TemporaryDirectory() as tmp, mock.patch.object(oa_fetch, "arxiv_id_lookup", return_value=meta):
+            result = oa_fetch.resolve_item(item, Path(tmp), 5, False, True)
 
         filename = Path(result["file"]).name
         self.assertTrue(filename.startswith("2018_Devlin_BERT_Pre-training"))
@@ -110,8 +111,8 @@ class FilenameMetadataTests(unittest.TestCase):
             "urls": ["https://arxiv.org/pdf/1810.04805v2.pdf"],
             "score": 1.0,
         }
-        with mock.patch.object(oa_fetch, "arxiv_id_lookup", return_value=meta):
-            result = oa_fetch.resolve_item(item, Path("/tmp/papers"), 5, False, True)
+        with TemporaryDirectory() as tmp, mock.patch.object(oa_fetch, "arxiv_id_lookup", return_value=meta):
+            result = oa_fetch.resolve_item(item, Path(tmp), 5, False, True)
 
         self.assertEqual(result["meta"]["title"], meta["title"])
         self.assertIn("BERT_Pre-training", Path(result["file"]).name)
@@ -122,8 +123,8 @@ class FilenameMetadataTests(unittest.TestCase):
             "url": "https://arxiv.org/abs/1810.04805",
             "canonical_id": "url:https://arxiv.org/abs/1810.04805",
         }
-        with mock.patch.object(oa_fetch, "arxiv_id_lookup", return_value={}):
-            result = oa_fetch.resolve_item(item, Path("/tmp/papers"), 5, False, True)
+        with TemporaryDirectory() as tmp, mock.patch.object(oa_fetch, "arxiv_id_lookup", return_value={}):
+            result = oa_fetch.resolve_item(item, Path(tmp), 5, False, True)
 
         self.assertTrue(result["success"])
         self.assertIn("arXiv_1810.04805", Path(result["file"]).name)
@@ -165,6 +166,8 @@ class FilenameMetadataTests(unittest.TestCase):
             }
             argv = [
                 "oa_fetch.py",
+                "--config", str(Path(tmp) / "isolated-config.json"),
+                "--oa-only",
                 "--batch",
                 str(batch),
                 "--out",
@@ -254,6 +257,8 @@ class FilenameMetadataTests(unittest.TestCase):
 
             argv = [
                 "oa_fetch.py",
+                "--config", str(Path(tmp) / "isolated-config.json"),
+                "--oa-only",
                 "--batch",
                 str(batch),
                 "--out",

@@ -1,6 +1,7 @@
 import json
 import sys
 import unittest
+from offline_support import OfflineTestCase
 from contextlib import redirect_stderr, redirect_stdout
 from io import BytesIO, StringIO
 from pathlib import Path
@@ -16,7 +17,7 @@ import oa_fetch  # noqa: E402
 import store  # noqa: E402
 
 
-class ShortCircuitCliTests(unittest.TestCase):
+class ShortCircuitCliTests(OfflineTestCase):
     DOI = "10.1000/short-circuit"
     PDF_URL = "https://example.org/paper.pdf"
 

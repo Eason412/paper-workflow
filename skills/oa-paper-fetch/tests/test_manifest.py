@@ -2,6 +2,7 @@ import csv
 import json
 import sys
 import unittest
+from offline_support import OfflineTestCase
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
@@ -16,7 +17,7 @@ import manifest  # noqa: E402
 import oa_fetch  # noqa: E402
 
 
-class ManifestTests(unittest.TestCase):
+class ManifestTests(OfflineTestCase):
     def test_doi_is_canonicalized_without_inventing_missing_fields(self):
         records = manifest.normalize_items(
             [
@@ -129,6 +130,8 @@ class ManifestTests(unittest.TestCase):
             stdout = StringIO()
             argv = [
                 "oa_fetch.py",
+                "--config", str(tmp_path / "isolated-config.json"),
+                "--oa-only",
                 "--batch",
                 str(batch),
                 "--manifest-out",

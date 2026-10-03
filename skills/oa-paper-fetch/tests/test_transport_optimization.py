@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import sys
 import unittest
+from offline_support import OfflineTestCase
 from unittest import mock
 
 
@@ -34,7 +35,7 @@ class _Context:
         self.request = mock.Mock(get=mock.Mock(return_value=response))
 
 
-class TransportOptimizationTests(unittest.TestCase):
+class TransportOptimizationTests(OfflineTestCase):
     def test_html_classifier_uses_content_type_and_safe_prefix_only(self):
         self.assertTrue(
             institutional_fetch._looks_like_html(

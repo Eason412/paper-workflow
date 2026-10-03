@@ -5,6 +5,7 @@ from contextlib import redirect_stderr
 from io import StringIO
 import sys
 import unittest
+from offline_support import OfflineTestCase
 import urllib.error
 import urllib.request
 
@@ -15,7 +16,7 @@ sys.path.insert(0, str(ROOT))
 import oa_fetch  # noqa: E402
 
 
-class OaUrlSafetyTests(unittest.TestCase):
+class OaUrlSafetyTests(OfflineTestCase):
     def test_metadata_lookups_tolerate_empty_author_names(self):
         openalex_response = {
             "doi": "https://doi.org/10.1000/example",
@@ -121,6 +122,8 @@ class OaUrlSafetyTests(unittest.TestCase):
             output_file.write_text("fixture", encoding="utf-8")
             argv = [
                 "oa_fetch.py",
+                "--config", str(Path(tmp) / "isolated-config.json"),
+                "--oa-only",
                 "--doi",
                 "10.1109/example",
                 "--out",
@@ -136,6 +139,8 @@ class OaUrlSafetyTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             argv = [
                 "oa_fetch.py",
+                "--config", str(Path(tmp) / "isolated-config.json"),
+                "--oa-only",
                 "--doi",
                 "10.1109/example",
                 "--out",

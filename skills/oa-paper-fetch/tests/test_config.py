@@ -1,9 +1,9 @@
 import json
 import os
 import stat
-import subprocess
 import sys
 import unittest
+from offline_support import OfflineTestCase, run_cli
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT))
 import config  # noqa: E402
 
 
-class ConfigTests(unittest.TestCase):
+class ConfigTests(OfflineTestCase):
     def test_defaults_use_desktop_papers_and_safe_institutional_limits(self):
         resolved = config.resolve_config({}, {})
 
@@ -106,7 +106,7 @@ class ConfigTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             config_path = Path(tmp) / "config.json"
             output_dir = Path(tmp) / "papers"
-            proc = subprocess.run(
+            proc = run_cli(
                 [
                     sys.executable,
                     str(ROOT / "oa_fetch.py"),

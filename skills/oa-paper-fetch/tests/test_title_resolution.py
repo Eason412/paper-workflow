@@ -4,6 +4,7 @@ from unittest import mock
 import csv
 import sys
 import unittest
+from offline_support import OfflineTestCase
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,7 +13,7 @@ sys.path.insert(0, str(ROOT))
 import oa_fetch  # noqa: E402
 
 
-class TitleResolutionTests(unittest.TestCase):
+class TitleResolutionTests(OfflineTestCase):
     def test_flat_report_exposes_title_and_publisher_decision_summary(self):
         result = {
             "success": False,
@@ -319,6 +320,7 @@ class TitleResolutionTests(unittest.TestCase):
             "lookups": [],
         }
         with (
+            TemporaryDirectory() as tmp,
             mock.patch.object(
                 oa_fetch, "resolve_title_identity", return_value=resolution
             ),
@@ -327,7 +329,7 @@ class TitleResolutionTests(unittest.TestCase):
             mock.patch.object(oa_fetch, "semantic_scholar_lookup", return_value={}),
         ):
             result = oa_fetch.resolve_item(
-                item, Path("/tmp/papers"), 5, False, False
+                item, Path(tmp), 5, False, False
             )
 
         self.assertFalse(result["success"])
@@ -368,6 +370,7 @@ class TitleResolutionTests(unittest.TestCase):
             "lookups": [],
         }
         with (
+            TemporaryDirectory() as tmp,
             mock.patch.object(
                 oa_fetch, "resolve_title_identity", return_value=resolution
             ),
@@ -377,7 +380,7 @@ class TitleResolutionTests(unittest.TestCase):
             mock.patch.object(oa_fetch, "semantic_scholar_lookup", return_value={}),
         ):
             result = oa_fetch.resolve_item(
-                item, Path("/tmp/papers"), 5, False, False
+                item, Path(tmp), 5, False, False
             )
 
         self.assertTrue(result["success"])
@@ -416,13 +419,14 @@ class TitleResolutionTests(unittest.TestCase):
             ],
         }
         with (
+            TemporaryDirectory() as tmp,
             mock.patch.object(
                 oa_fetch, "resolve_title_identity", return_value=resolution
             ),
             mock.patch.object(oa_fetch, "download_pdf") as download_pdf,
         ):
             result = oa_fetch.resolve_item(
-                item, Path("/tmp/papers"), 5, False, False
+                item, Path(tmp), 5, False, False
             )
 
         download_pdf.assert_not_called()

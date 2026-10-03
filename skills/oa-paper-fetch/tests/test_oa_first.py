@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 import sys
 import unittest
+from offline_support import OfflineTestCase
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,7 +15,7 @@ import institutional_fetch  # noqa: E402
 import oa_fetch  # noqa: E402
 
 
-class OaFirstTests(unittest.TestCase):
+class OaFirstTests(OfflineTestCase):
     def test_only_oa_failures_enter_institutional_retry(self):
         with TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -42,6 +43,7 @@ class OaFirstTests(unittest.TestCase):
 
             argv = [
                 "oa_fetch.py",
+                "--config", str(tmp_path / "isolated-config.json"),
                 "--batch",
                 str(batch),
                 "--out",
@@ -97,6 +99,7 @@ class OaFirstTests(unittest.TestCase):
 
             argv = [
                 "oa_fetch.py",
+                "--config", str(tmp_path / "isolated-config.json"),
                 "--batch",
                 str(batch),
                 "--out",
@@ -184,6 +187,7 @@ class OaFirstTests(unittest.TestCase):
 
             argv = [
                 "oa_fetch.py",
+                "--config", str(tmp_path / "isolated-config.json"),
                 "--batch",
                 str(batch),
                 "--out",
@@ -258,6 +262,7 @@ class OaFirstTests(unittest.TestCase):
 
             argv = [
                 "oa_fetch.py",
+                "--config", str(tmp_path / "isolated-config.json"),
                 "--batch",
                 str(batch),
                 "--out",
@@ -297,6 +302,7 @@ class OaFirstTests(unittest.TestCase):
             out = Path(tmp) / "out"
             argv = [
                 "oa_fetch.py",
+                "--config", str(Path(tmp) / "isolated-config.json"),
                 "--doi",
                 "10.1109/failure",
                 "--out",
@@ -336,6 +342,8 @@ class OaFirstTests(unittest.TestCase):
             pending.write_text(original, encoding="utf-8")
             argv = [
                 "oa_fetch.py",
+                "--config", str(Path(tmp) / "isolated-config.json"),
+                "--oa-only",
                 "--doi",
                 "10.1109/preview",
                 "--out",
@@ -369,6 +377,7 @@ class OaFirstTests(unittest.TestCase):
             missing_profile = tmp_path / "missing-profile"
             argv = [
                 "oa_fetch.py",
+                "--config", str(tmp_path / "isolated-config.json"),
                 "--doi",
                 "10.1109/failure",
                 "--out",
@@ -415,6 +424,7 @@ class OaFirstTests(unittest.TestCase):
             (profile / "marker").write_text("fixture", encoding="utf-8")
             argv = [
                 "oa_fetch.py",
+                "--config", str(tmp_path / "isolated-config.json"),
                 "--doi",
                 "10.1109/failure",
                 "--out",
@@ -468,6 +478,8 @@ class OaFirstTests(unittest.TestCase):
             batch.write_text("First title\nSecond title\n", encoding="utf-8")
             argv = [
                 "oa_fetch.py",
+                "--config", str(tmp_path / "isolated-config.json"),
+                "--oa-only",
                 "--batch",
                 str(batch),
                 "--out",
@@ -562,6 +574,7 @@ class OaFirstTests(unittest.TestCase):
             )
             argv = [
                 "oa_fetch.py",
+                "--config", str(tmp_path / "isolated-config.json"),
                 "--batch",
                 str(batch),
                 "--out",

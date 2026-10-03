@@ -7,6 +7,7 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
+from offline_support import OfflineTestCase
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -15,7 +16,7 @@ import oa_fetch
 import store
 
 
-class CheckpointTests(unittest.TestCase):
+class CheckpointTests(OfflineTestCase):
     def test_failed_checkpoint_stops_batch_and_preserves_original_pdf(self):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
@@ -72,7 +73,9 @@ class CheckpointTests(unittest.TestCase):
             ([response(status=302, headers={"location": "https://example.org/other"})], "unsafe_pdf_url"),
             ([response(final="https://example.org/other")], "unsafe_pdf_url"),
             ([response(error=OSError("read failed"))], "read_OSError"),
+            ([response(error=RuntimeError("connection terminated"))], "read_RuntimeError"),
             ([response(body=b"html")], "not_pdf"),
+            ([response(body=b"<html>Sign in</html>")], "not_pdf_login_or_challenge"),
             ([response(body=b"%PDF-" + b"x" * 30)], "too_large"),
             ([response(status=302, headers={"location": "/next.pdf"}), response()], "downloaded"),
             ([response(status=302, headers={"location": "/next.pdf"}) for _ in range(6)], "too_many_redirects"),

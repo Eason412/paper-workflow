@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 import sys
 import unittest
+from offline_support import OfflineTestCase
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 import oa_fetch  # noqa: E402
 
 
-class CliContractTests(unittest.TestCase):
+class CliContractTests(OfflineTestCase):
     def test_dry_run_only_accepts_public_url_candidates(self):
         lookups = (
             mock.patch.object(oa_fetch, "openalex_lookup", return_value={}),
@@ -66,6 +67,8 @@ class CliContractTests(unittest.TestCase):
                 stdout = StringIO()
                 argv = [
                     "oa_fetch.py",
+                    "--config", str(Path(tmp) / "isolated-config.json"),
+                    "--oa-only",
                     "--doi",
                     "10.1000/example",
                     "--out",

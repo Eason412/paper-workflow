@@ -3,6 +3,7 @@ import json
 import re
 import sys
 import unittest
+from offline_support import OfflineTestCase
 from contextlib import nullcontext, redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
@@ -20,7 +21,7 @@ import store
 from test_institutional_boundaries import GuardablePage
 
 
-class RecoveryRegressionTests(unittest.TestCase):
+class RecoveryRegressionTests(OfflineTestCase):
     def test_ids_stay_unique_across_explicit_suffix_and_default_collisions(self):
         for ids in (["a", "a", "a-2"], ["a", "a-2", "a"],
                     [None, "row1", "row1-2"], ["row2", None, "row2-2"]):
@@ -50,7 +51,7 @@ class RecoveryRegressionTests(unittest.TestCase):
                 state_path.write_bytes(raw)
                 stderr = StringIO()
                 with (
-                    mock.patch.object(sys, "argv", ["oa_fetch.py", "--doi", "10.1000/test",
+                    mock.patch.object(sys, "argv", ["oa_fetch.py", "--doi", "10.1000/test", "--oa-only",
                                                    "--out", tmp, "--config", str(out / "config.json")]),
                     mock.patch.object(oa_fetch, "resolve_item") as resolve,
                     redirect_stdout(StringIO()), redirect_stderr(stderr),

@@ -1,6 +1,7 @@
 import json
 import sys
 import unittest
+from offline_support import OfflineTestCase
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
@@ -15,7 +16,7 @@ import store  # noqa: E402
 import oa_fetch  # noqa: E402
 
 
-class StoreResumeTests(unittest.TestCase):
+class StoreResumeTests(OfflineTestCase):
     def test_atomic_pdf_write_and_verification(self):
         with TemporaryDirectory() as tmp:
             target = Path(tmp) / "paper.pdf"
@@ -206,6 +207,8 @@ class StoreResumeTests(unittest.TestCase):
 
             argv = [
                 "oa_fetch.py",
+                "--config", str(Path(tmp) / "isolated-config.json"),
+                "--oa-only",
                 "--batch",
                 str(batch),
                 "--out",
