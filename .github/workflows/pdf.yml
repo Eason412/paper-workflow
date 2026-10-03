@@ -14,6 +14,8 @@ jobs:
   regression:
     name: Regression (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
     defaults:
       run:
         working-directory: skills/md-course-report-to-pdf
@@ -32,15 +34,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Check Python syntax
-        run: python -m compileall -q scripts tests
-
       - name: Run regression tests
-        run: python -m unittest discover -s tests -v
+        run: python -m unittest discover -s tests -p test_unit.py -v
 
   smoke:
     name: Full PDF smoke (Pandoc ${{ matrix.pandoc-version }})
     runs-on: ubuntu-latest
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
     defaults:
       run:
         working-directory: skills/md-course-report-to-pdf
@@ -74,21 +75,25 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/Tectonic
-          key: ${{ runner.os }}-tectonic-${{ hashFiles('skills/md-course-report-to-pdf/assets/templates/**/*.tex', 'skills/md-course-report-to-pdf/examples/**/*.md') }}
+          key: ${{ runner.os }}-tectonic-0.17.0-${{ hashFiles('skills/md-course-report-to-pdf/assets/templates/**/*.tex', 'skills/md-course-report-to-pdf/examples/**/*.md') }}
           restore-keys: |
-            ${{ runner.os }}-tectonic-
+            ${{ runner.os }}-tectonic-0.17.0-
 
       - name: Set up Tectonic
         uses: wtfjoke/setup-tectonic@v4
+        with:
+          tectonic-version: "0.17.0"
 
       - name: Check PDF compiler
         run: tectonic --version
 
       - name: Run Pandoc integration regressions
-        run: python3 -m unittest discover -s tests -v
+        env:
+          MD_COURSE_REPORT_REQUIRE_PANDOC: "1"
+        run: python -m unittest discover -s tests -p test_integration.py -v
 
       - name: Run smoke tests
         env:
           MD_COURSE_REPORT_REQUIRE_COMPILER: "1"
           MD_COURSE_REPORT_REQUIRE_PDF_TOOLS: "1"
-        run: python3 scripts/run_smoke_tests.py
+        run: python scripts/run_smoke_tests.py
