@@ -8,7 +8,7 @@
 | --- | --- |
 | 文献获取开发 | [文献获取维护规则](skills/oa-paper-fetch/AGENTS.md) |
 | 文献获取执行 | [文献获取 Skill](skills/oa-paper-fetch/SKILL.md) |
-| 报告排版开发与执行 | [报告排版 Skill](skills/md-course-report-to-pdf/SKILL.md)，格式问题按需读取其 QA 参考 |
+| 报告排版开发与执行 | [报告排版 Skill](skills/course-report/SKILL.md)，格式问题按需读取其 QA 参考 |
 | 安装、导航与 CI | 根 README、贡献指南和 `.github/workflows/` |
 
 每个 Skill 保持完整安装单元，不依赖另一个 Skill 或总仓库根目录运行。只维护 Codex 的 `SKILL.md` 与 `agents/openai.yaml` 入口。

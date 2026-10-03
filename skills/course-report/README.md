@@ -27,7 +27,7 @@ tectonic --version
 完成总仓库的链接安装后，在准备存放报告的目录执行：
 
 ```bash
-SKILL_DIR="$HOME/.agents/skills/md-course-report-to-pdf"
+SKILL_DIR="$HOME/.agents/skills/course-report"
 mkdir -p my-course-report
 cp "$SKILL_DIR/examples/标准课程报告模板.md" my-course-report/report.md
 cd my-course-report
@@ -49,7 +49,7 @@ uv run "$SKILL_DIR/scripts/build_course_report.py" report.md --no-cover --pdf "r
 Codex 调用：
 
 ```text
-使用 $md-course-report-to-pdf，将 report.md 转为课程报告 PDF。
+使用 $course-report，将 report.md 转为课程报告 PDF。
 课程名称为“示例课程”，姓名为“示例学生”，学号为“0000000000”。
 ```
 

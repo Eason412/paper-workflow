@@ -1,5 +1,5 @@
 ---
-name: md-course-report-to-pdf
+name: course-report
 description: "把中文 Markdown 课程报告或作业排版成带封面、摘要、目录、图表编号与参考文献的 PDF，并检查成品。普通 Markdown 转 PDF 不用本 skill。"
 ---
 

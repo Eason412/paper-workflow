@@ -1,4 +1,0 @@
-interface:
-  display_name: "Markdown Course Report to PDF"
-  short_description: "将中文课程报告排版为带封面、目录、图表编号与参考文献的 PDF"
-  default_prompt: "使用 $md-course-report-to-pdf 将 report.md 排版为课程报告 PDF，封面字段从本次请求或源文件获取，并检查构建警告和成品。"

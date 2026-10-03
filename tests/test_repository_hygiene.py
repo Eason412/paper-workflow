@@ -20,24 +20,24 @@ class RepositoryHygieneTests(unittest.TestCase):
             "output/paper.pdf.part-example",
             "skills/oa-paper-fetch/output/paper.pdf",
             "skills/oa-paper-fetch/profile/Default/Cookies",
-            "skills/md-course-report-to-pdf/latex/metadata.yaml",
+            "skills/course-report/latex/metadata.yaml",
         ]
         sources = [
             "README.md", "AGENTS.md",
             "skills/oa-paper-fetch/SKILL.md",
             "skills/oa-paper-fetch/oa_fetch.py",
             "skills/oa-paper-fetch/tests/test_store_resume.py",
-            "skills/md-course-report-to-pdf/SKILL.md",
-            "skills/md-course-report-to-pdf/assets/templates/ctexart-course-report.tex",
-            "skills/md-course-report-to-pdf/examples/minimal_report.md",
-            "skills/md-course-report-to-pdf/references/format-qa.md",
+            "skills/course-report/SKILL.md",
+            "skills/course-report/assets/templates/ctexart-course-report.tex",
+            "skills/course-report/examples/minimal_report.md",
+            "skills/course-report/references/format-qa.md",
         ]
         with tempfile.TemporaryDirectory() as raw:
             sandbox = Path(raw)
             subprocess.run(["git", "init", "-q", str(sandbox)], check=True, capture_output=True)
             for relative in (
                 ".gitignore", "skills/oa-paper-fetch/.gitignore",
-                "skills/md-course-report-to-pdf/.gitignore",
+                "skills/course-report/.gitignore",
             ):
                 target = sandbox / relative
                 target.parent.mkdir(parents=True, exist_ok=True)

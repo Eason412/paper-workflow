@@ -7,7 +7,7 @@
 | Skill | 主要功能 | 使用说明 |
 | --- | --- | --- |
 | `oa-paper-fetch` | OA 优先获取、批量清单处理、浏览器登录会话复用、下载状态与续传管理 | [中文说明](skills/oa-paper-fetch/README.zh-CN.md) · [English](skills/oa-paper-fetch/README.md) |
-| `md-course-report-to-pdf` | 课程报告封面、摘要与目录生成，图表、公式和参考文献排版，双阶段 QA | [使用说明](skills/md-course-report-to-pdf/README.md) |
+| `course-report` | 课程报告封面、摘要与目录生成，图表、公式和参考文献排版，双阶段 QA | [使用说明](skills/course-report/README.md) |
 
 两个 Skill 均面向 Codex，可独立安装和调用，源码统一在本仓库维护。
 
@@ -41,7 +41,7 @@ macOS / Linux 可将所需 Skill 链接到个人目录。以下命令在仓库�
 ```bash
 mkdir -p "$HOME/.agents/skills"
 ln -s "$PWD/skills/oa-paper-fetch" "$HOME/.agents/skills/oa-paper-fetch"
-ln -s "$PWD/skills/md-course-report-to-pdf" "$HOME/.agents/skills/md-course-report-to-pdf"
+ln -s "$PWD/skills/course-report" "$HOME/.agents/skills/course-report"
 ```
 
 仅需文献获取时，执行第一条链接命令即可。Windows 可将对应的完整 Skill 子目录复制到个人 Skill 目录。安装内容必须包含同目录内的脚本、模板和引用资源。
@@ -78,7 +78,7 @@ ln -s "$PWD/skills/md-course-report-to-pdf" "$HOME/.agents/skills/md-course-repo
 ### 课程报告生成
 
 ```text
-使用 $md-course-report-to-pdf，将 report.md 转为课程报告 PDF，不添加封面。
+使用 $course-report，将 report.md 转为课程报告 PDF，不添加封面。
 ```
 
 文献默认保存到 `~/Desktop/Papers`，可通过请求或 CLI 的 `--out` 指定其他目录。报告排版以已有 Markdown 为输入；具体命令、状态解释和示例文件见各 Skill 的使用说明。
@@ -87,7 +87,7 @@ ln -s "$PWD/skills/md-course-report-to-pdf" "$HOME/.agents/skills/md-course-repo
 
 ```text
 skills/oa-paper-fetch/             文献获取源码、测试与使用说明
-skills/md-course-report-to-pdf/    报告排版源码、模板、示例与测试
+skills/course-report/    报告排版源码、模板、示例与测试
 .github/workflows/                独立回归与 PDF 构建检查
 ```
 
@@ -96,7 +96,7 @@ skills/md-course-report-to-pdf/    报告排版源码、模板、示例与测试
 ```bash
 cd skills/oa-paper-fetch
 PYTHONDONTWRITEBYTECODE=1 uv run --no-project python -m unittest discover -s tests -v
-cd ../md-course-report-to-pdf
+cd ../course-report
 PYTHONDONTWRITEBYTECODE=1 uv run --no-project python -m unittest discover -s tests -v
 uv run scripts/run_smoke_tests.py
 ```
@@ -111,4 +111,4 @@ PYTHONDONTWRITEBYTECODE=1 uv run --no-project python -m unittest discover -s tes
 
 ## 许可证
 
-两项 Skill 的原创代码分别保留原有 MIT 许可证：[文献获取](skills/oa-paper-fetch/LICENSE)、[报告排版](skills/md-course-report-to-pdf/LICENSE)。报告排版所附校徽与官方格式资料的来源和权利说明见 [第三方材料声明](skills/md-course-report-to-pdf/THIRD_PARTY_NOTICES.md)。
+两项 Skill 的原创代码分别保留原有 MIT 许可证：[文献获取](skills/oa-paper-fetch/LICENSE)、[报告排版](skills/course-report/LICENSE)。报告排版所附校徽与官方格式资料的来源和权利说明见 [第三方材料声明](skills/course-report/THIRD_PARTY_NOTICES.md)。
