@@ -5,379 +5,134 @@ description: "查找并下载学术论文 PDF（DOI、标题、链接或参考�
 
 # OA Paper Fetch
 
-Use this `SKILL.md` as the primary entry point. Treat `oa_fetch.py` and
-`institutional_fetch.py` as the CLI execution backends. Run the chosen route
-for the user; do not make them assemble CLI commands unless requested.
+## Purpose and boundaries
 
-## Scope and execution route
+Use `oa_fetch.py` only for the requested papers or subset. Match existing
+manifests, results and verified PDFs; resume only requested unresolved identities.
 
-First pin the requested papers, source, publisher/issue or reference-list boundary,
-destination, and pacing for **this run**. A named journal subset is the batch:
-do not fetch the rest of a larger reference list. Check the destination and any
-existing manifest, results, and verified PDFs before requesting a paper; skip
-already obtained identities and resume only the requested unresolved rows.
-Do not convert a one-run preference into saved configuration.
+- OA first; a verified PDF ends acquisition for that paper.
+- Institutional access is limited to entitled IEEE Xplore, Wiley Online Library
+  and Elsevier ScienceDirect content; never silently expand the allowlist.
+- The user handles credentials and SSO/MFA. Do not read, enter or transfer secrets,
+  cookies or storage state, or bypass login, CAPTCHA, paywalls or anti-bot controls;
+  never use Sci-Hub or shared credentials.
+- Preserve source identity; do not invent metadata or bypass identity failures
+  by selecting a similar candidate or switching routes.
 
-Choose one institutional session route for the batch. The CLI uses its own
-isolated persistent browser profile; an already signed-in ordinary Chrome is
-not evidence that this profile is signed in. If the current browser tool can
-operate the user's signed-in publisher tabs and save downloads, use that
-session directly instead of repeatedly launching the separate CLI profile.
-Validate access, identity, actual PDF saving, and the result record on one
-paper before the remainder. If the selected route cannot complete that check,
-report the exact obstacle and switch routes only when the alternative is
-available within the user's authorization. Do not repeat permission questions
-for the same already-authorized access.
+## Paths, commands and offline preflight
 
-Treat `not_pdf_browser_download_required` as a transport handoff: the direct
-publisher PDF request returned ordinary HTML, so it did not download a paper.
-When the user has already authorized the signed-in browser route, use the same
-session's normal View PDF/Download PDF flow once without asking them to log in
-again. Validate the saved PDF fully before continuing the batch. Do not loop the
-direct request or describe the current CLI backend as already handling browser
-download events.
-The CLI records this as `failed`, with the diagnostic in `institutional.error`
-in `oa_fetch_results.json`; it does not add the item to `oa_fetch_pending.csv`.
-Select the affected identities from that result report for browser handoff,
-retain unresolved rows, and record each verified browser result separately.
-
-For interactive browser retrieval, read
-[the browser workflow](references/browser-workflow.md). Keep one owner for
-each publisher session and its tabs; other agents may independently check
-bibliography or local results offline, but cannot take over another agent's
-browser tab. Close task-opened article/PDF tabs after saving and verifying.
-
-## Non-negotiable rules
-
-- Apply OA first. Try direct open PDFs, arXiv, OpenAlex, Unpaywall, and Semantic
-  Scholar as applicable before institutional fallback. A verified OA success
-  ends acquisition for that paper; do not query remaining sources merely to
-  exhaust the list. Dry-run retains full candidate discovery.
-- Limit institutional fallback to content the user is entitled to access on
-  IEEE Xplore, Wiley Online Library, and Elsevier ScienceDirect. Never expand
-  the publisher allowlist silently.
-- Never ask for, read, type, or store a school password, SSO code, MFA code,
-  recovery code, authorization header, or token. Never read, extract, import,
-  or export cookies or Playwright storage state. Let the user complete
-  authentication in the visible browser; the browser itself may retain its
-  session cookies in the isolated local profile.
-- Never use Sci-Hub, shared credentials, CAPTCHA automation, paywall
-  circumvention, proxy rotation, or anti-bot evasion.
-- Keep downloads serial. Both CLI and interactive institutional retrieval
-  use a base delay of at least 4 seconds, jitter within 0--10 seconds, and at
-  most 30 institutional attempts per run. The CLI enforces these limits;
-  track them explicitly for an interactive browser batch. Never chain runs or
-  switch routes to bypass the cap. If the user asks for at least 3 seconds
-  between papers, use the more conservative 4-second minimum without asking
-  again.
-- Treat `~/.oa-paper-fetch/profile` as sensitive. Keep it local; never inspect,
-  print, copy, upload, synchronize, or commit its contents.
-- Do not invent bibliographic metadata. Preserve titles, DOI values, and URLs
-  from the user or source material; leave unknown fields empty. For filename
-  metadata, accept arXiv Atom records and citation tags on the allowed
-  publisher article page as source material. Never infer year or author from
-  a URL, journal name, or memory.
-- Treat title-only input as a request to resolve identity, not permission to
-  download the most similar result. Preserve the exact source title and let
-  the backend confirm a DOI or report ambiguity.
-
-## Resolve paths
-
-Resolve `SKILL_DIR` to the absolute directory containing this `SKILL.md`, then
-invoke:
+Resolve `SKILL_DIR` to this file's absolute directory. Adapt Bash syntax to the
+actual shell; resolve input/output paths independently of the working directory.
 
 ```bash
-uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" ...
+uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" --oa-only --doi "10.xxxx/yyyy"
+uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" --oa-only --batch "/absolute/references.csv"
 ```
 
-Resolve input and output paths independently of the current working directory.
-When the user supplies an output path, convert it to an absolute path and pass
-`--out`. When they do not supply one, omit `--out`; the backend uses the saved
-preference or `~/Desktop/Papers`.
+These examples force OA-only; authorized fallback is described below.
+Choose one selector: `--doi`, `--title`, `--url` or `--batch` (CSV, Markdown
+table or line list). Pass `--out` for a specified destination; otherwise use
+saved preferences or `~/Desktop/Papers`. More options: `--help`.
 
-## Turn AI references into a manifest
+For conversation/attachment references, prepare a UTF-8 CSV outside the repository
+with `id,title,doi,url`; copy known fields and leave others empty. Each row needs
+a title, DOI or URL; report missing identities separately. Reuse supported files.
 
-For multiple references found in the conversation, pasted by the user, or
-read from an attachment:
-
-1. Create a temporary UTF-8 CSV outside the repository with exactly these
-   columns:
-
-   ```csv
-   id,title,doi,url
-   ref-0001,Exact title from the source,10.xxxx/yyyy,https://example.org/article
-   ```
-
-2. Give every row a stable unique `id`. Copy only known values. Require at
-   least one of `title`, `doi`, or `url`; leave the other cells empty.
-   The backend assigns missing IDs and suffixes collisions, including conflicts
-   with explicitly supplied suffixes, so every normalized row stays distinct.
-3. Do not infer a DOI from general knowledge and do not repair a title by
-   guessing. Let the backend normalize and resolve it.
-4. Run the temporary CSV with `--batch`. The backend normalizes DOI/URL values,
-   removes hard DOI/URL duplicates, flags possible title-only duplicates, and
-   writes the canonical `oa_fetch_manifest.csv` into the output directory.
-   A source-derived title obtained for an anchored DOI, arXiv ID, or allowed
-   publisher page may populate a previously empty manifest title for resume
-   and naming. Resolved DOI values and candidate evidence remain in
-   result/state files rather than being written back as user input.
-5. If a referenced paper has none of a source title, DOI, or URL, leave it out
-   of the executable CSV, report the missing source information, and ask for
-   the reference or attachment instead of inventing a row.
-
-For an offline preflight without metadata queries or downloads, run:
+Normalize and deduplicate offline, without metadata queries or downloads:
 
 ```bash
-uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" \
-  --batch "/absolute/raw-references.csv" \
-  --manifest-out "/absolute/oa_fetch_manifest.csv"
+uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" --batch "/absolute/references.csv" --manifest-out "/absolute/oa_fetch_manifest.csv"
 ```
 
-Report invalid and duplicate rows. Do not describe a normalized manifest as a
-completed download.
+Report invalid/duplicate rows, not downloads. `--dry-run` queries candidates
+and writes reports, but no PDFs/state/pending or institutional requests.
 
-## Resolve title-only references safely
-
-Allow a row to contain only its exact source title. The backend queries arXiv,
-Crossref, and OpenAlex for independent candidates before it uses a resolved
-DOI.
-
-- Accept one DOI automatically only when at least two independent sources
-  return the same DOI with strong title agreement. An exact title from only
-  one source remains insufficient; exact agreement changes the recorded
-  reason, not the independent-corroboration requirement.
-- Treat an exact-title `10.48550/arXiv.*` repository DOI as an alias of a
-  publisher DOI only when at least two independent sources corroborate that
-  one publisher DOI. Keep the arXiv OA URL and alias in the JSON evidence. One
-  publisher source is insufficient, and two publisher DOIs always conflict.
-- Treat lower similarity thresholds as candidate discovery only. Never select
-  a DOI merely because it is the highest-scoring result.
-- Preserve the candidate title, DOI, source, score, year, and first author in
-  the JSON evidence.
-- For `title_resolution_ambiguous`, keep the item pending and ask for a DOI,
-  publisher URL, or corrected full title. Do not download any candidate.
-- For `title_resolution_unresolved`, report failure and ask for a DOI,
-  publisher URL, or the exact original title.
-- Once title resolution blocks an item, an accompanying URL must not cause an
-  institutional retry to bypass that decision. Preserve the identity evidence.
-- An explicit DOI or supported URL remains the identity anchor. Metadata
-  searches must not silently replace it.
-
-## Configure standing preferences
-
-Store only non-sensitive preferences in
-`~/.oa-paper-fetch/config.json`. Use `--save-config` only after the user asks to
-set or change a default.
-
-Examples:
+Plain OA needs no third-party packages. Only authorized institutional setup uses:
 
 ```bash
-# Save a custom default directory and OA item interval.
-uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" \
-  --out "/absolute/default/Papers" \
-  --oa-delay 1 \
-  --save-config
-
-# Save institutional fallback as the user's standing choice.
-uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" \
-  --institutional \
-  --inst-delay 4 \
-  --inst-jitter 3 \
-  --max-institutional 30 \
-  --save-config
+uv sync --project "$SKILL_DIR" --extra institutional
+uv run --project "$SKILL_DIR" --extra institutional python -m playwright install chromium
 ```
 
-Use explicit request values for the current run, then saved preferences, then
-built-in defaults. Use `--oa-only` when the user wants to override a saved
-institutional preference for one run. Never enable institutional fallback as a
-standing preference without an explicit user request.
+## Source identity and blocked papers
 
-## Establish or refresh institutional login
+Explicit DOI or supported URL anchors identity; metadata cannot substitute
+another paper. Do not infer author/year from URLs, journal names or memory.
+Title-only input goes to backend confirmation: two independent sources must
+corroborate one DOI, not merely the highest-scoring match.
 
-The institutional backend requires Playwright. If it is missing, explain the
-two installation commands from the backend error; do not install it without
-authorization.
+For `title_resolution_ambiguous`, `title_resolution_unresolved`,
+`publisher_title_mismatch` or `publisher_title_unverifiable`, retain evidence
+and request a DOI, supported article URL or corrected exact title. Do not
+download candidates or bypass the decision through another route.
 
-When this **CLI profile** needs login, tell the user that a visible browser will
-open and they must complete SSO/MFA themselves. Run:
+## Preferences and institutional authorization
+
+Precedence: current arguments, saved `~/.oa-paper-fetch/config.json`, defaults.
+Use `--save-config` only for an explicit default-setting request, never to save
+one-run output, pace or access choices. `--oa-only` overrides saved institutional
+access for this run.
+
+For authorized school access use `--institutional` or the authorized saved choice.
+CLI institutional runs need
+`uv run --project "$SKILL_DIR" --extra institutional python "$SKILL_DIR/oa_fetch.py"`
+plus input/output options. Only unresolved eligible OA items enter fallback.
+Use existing `UNPAYWALL_EMAIL` without exposing its value in chat or logs.
+
+## Session isolation, login and browser handoff
+
+CLI profile `~/.oa-paper-fetch/profile` is separate from ordinary Chrome;
+Chrome login does not prove CLI login. Do not inspect, copy, synchronize,
+upload or commit profile contents.
+
+For missing/expired CLI login:
 
 ```bash
 uv run --project "$SKILL_DIR" --extra institutional python "$SKILL_DIR/oa_fetch.py" --institutional-login
 ```
 
-The command opens IEEE Xplore, ScienceDirect, and Wiley Online Library. Do not
-click or type in authentication fields. Wait for the user to finish in the
-browser and press Enter in the command session. Reuse the persistent profile on
-later runs while the publishers still accept it; do not treat its age as proof
-that it is valid. The browser manages the saved login state locally, including
-session cookies; this does not authorize the Skill to inspect the profile or
-read/export cookies.
+The user completes SSO/MFA visibly and presses Enter in the terminal;
+do not operate authentication fields. `--headless` only reuses working profiles.
 
-Use a visible browser by default. Use `--headless` only to reuse a profile that
-has already worked; never use it for first login or login repair.
+An available browser tool may use the user's authorized session directly.
+Read [browser workflow](references/browser-workflow.md) for saving/verification;
+validate one paper before continuing. Never transfer authentication to the CLI.
 
-## Download
+`not_pdf_browser_download_required` means ScienceDirect returned ordinary HTML,
+not a PDF or necessarily a login failure. Select it from `institutional.error`
+in the result JSON: it is `failed`, not in the pending CSV. With browser
+authorization, try the same session's normal PDF flow once, verify and record
+the outcome separately. CLI browser-download events are not implemented.
 
-For one paper, use exactly one selector:
+Keep retrieval serial. Institutional limits are minimum 4-second base delay,
+jitter 0–10 seconds and 30 attempts per run across both routes. Count interactive
+attempts including earlier CLI attempts; route switches or chained runs cannot
+reset the cap.
 
-```bash
-uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" --doi "10.xxxx/yyyy" --format text
-uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" --title "Exact paper title" --format text
-uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" --url "https://arxiv.org/abs/1706.03762" --format text
-```
+## Resume, stopping decisions and reporting
 
-For multiple papers, use the prepared batch:
+Same canonical manifest and output directory means resume; verified successes
+return `exists`, unresolved items retry. `--overwrite` needs a replacement
+request. Let the backend name files; never redownload merely for naming.
+Read [recovery and naming](references/recovery-naming.md) for migration,
+checkpoints, damaged state or mixed pending reasons.
 
-```bash
-uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" \
-  --batch "/absolute/raw-references.csv" \
-  --format text
-```
+Persistence failure exits `4`: retain files/state and repair storage before
+resume. Never delete/reset unreadable, malformed or unsupported-version state.
+The PDF signature gate is lightweight, not full PDF validation.
 
-Pass `--out "/absolute/output"` only when the user specifies a destination.
-Pass `--institutional` for a one-run institutional request; otherwise honor the
-saved standing choice. The backend still sends only unresolved OA items with a
-DOI or supported original URL to the institutional layer.
+- Identity block: clarify identity, do not retry unchanged evidence.
+- Missing/expired login: visible user refresh before resume. CLI stops after
+  three blocks since the last verified PDF; browser challenges stop immediately.
+- `institutional_cap_reached`: retain/report pending and await a new request;
+  never append institutional batches automatically.
+- Rejected URL, redirect or guard: leave unresolved, never retrieve manually
+  or disable guards to bypass rejection. Guard errors need transport repair.
+- No OA or entitled PDF: preserve failure for manual retrieval.
 
-Treat a clear statement such as “use my configured school access” or “学校访问已经
-配置过，这次直接使用” as authorization for institutional fallback in this run;
-pass `--institutional`, but do not change the saved standing preference unless
-the user explicitly asks to save it. A statement that the browser was once
-logged in is not proof that the session is still valid; let the backend detect
-a missing or rejected profile without inspecting its contents.
-
-If `UNPAYWALL_EMAIL` is already configured, let the backend use it. Never ask
-the user to reveal its value in chat or logs.
-
-## Preserve accurate PDF names
-
-Let the backend name PDFs as
-`year_first-author_full-title_stable-hash.pdf`. The stable hash belongs to the
-canonical identity and must remain present even when all bibliographic fields
-are known.
-
-- For arXiv URLs and arXiv DOI values, let the backend query the exact arXiv ID
-  and use its title, publication year, and first author.
-- For entitled IEEE Xplore, Wiley Online Library, and ScienceDirect downloads,
-  let the institutional backend read the article page's `citation_title`,
-  first `citation_author`, publication date, and DOI before finalizing the
-  filename.
-- When the task has an expected title from the user or DOI-anchored metadata,
-  require the publisher page to expose a usable `citation_title` and require
-  that title to agree before requesting the PDF. Keep a missing or
-  normalization-empty title as
-  `publisher_title_unverifiable` and a disagreement as
-  `publisher_title_mismatch`; both remain pending and neither page is
-  downloaded. Preserve a rejected page title only as `citation_title`; do not
-  replace the task's expected `title` with it.
-- When no expected title is attached to an explicit DOI or URL task, missing
-  bibliographic fields alone do not block the anchored identity. Use the most
-  specific non-invented fallback: known title, arXiv ID, DOI, PII/IEEE document
-  ID, or URL basename.
-- Never overwrite a different file at the desired name. Report
-  `filename_error` and retain the verified PDF at its existing name.
-- If the output filesystem does not support same-directory hard links, retain
-  the old filename and report the migration error; do not copy over or delete
-  the original as a fallback.
-- Treat `renamed_from` as evidence that an already downloaded PDF was migrated,
-  not downloaded again.
-
-## Resume and continue
-
-Institutional results are checkpointed individually after metadata and filename
-processing. Reuse those completed checkpoints after interruption. If a checkpoint
-write fails, the backend stops further institutional requests and returns `4`;
-retain existing files and state, repair the output/storage condition, and resume
-only after the failure has been addressed. Do not reset state to force a retry.
-
-Treat rerunning the same canonical manifest in the same output directory as a
-resume. Let the backend verify `%PDF`, reuse the canonical identity and state,
-skip verified successes as `exists`, and retry unresolved items. Do not use
-`--overwrite` unless the user explicitly requests a replacement.
-
-Downloads and resume use the same lightweight check: a `%PDF` prefix and more
-than five bytes. This detects empty/truncated signatures, not full PDF validity.
-If existing state is unreadable, malformed, or has an unsupported version, stop
-with exit `4` and retain the state file unchanged. Do not delete or replace it
-automatically; valid older records without newer optional fields remain usable.
-
-An old state record without the current naming version may perform one
-metadata-only refresh. The backend must verify the old PDF, create the new name
-without overwriting, save state, and only then remove the old name. It must not
-redownload the PDF merely to improve its filename. Subsequent resumes should
-return `exists` without another metadata lookup.
-
-When `oa_fetch_pending.csv` exists:
-
-- Report every pending item and reason.
-- For `institutional_cap_reached`, wait for a new user request before running
-  the pending CSV as a new batch.
-- For `login_refresh_required` or `profile_missing_login_required`, ask the
-  user to refresh the visible login. Resume only after they confirm completion.
-- For `title_resolution_ambiguous`, `publisher_title_mismatch`, or
-  `publisher_title_unverifiable`, report the available identity evidence and
-  wait for a corrected title, DOI, or supported article URL. Do not
-  automatically retry the same unverified identity.
-- Never start a second institutional batch automatically.
-- If one pending CSV contains both a login-refresh reason and
-  `institutional_cap_reached`, the login refresh gates the whole resume. After
-  the user confirms it, rerun that same pending CSV once; splitting it is not
-  required, and the new run still has the 30-attempt cap.
-
-## Report results
-
-Inspect the stdout JSON and `oa_fetch_results.json`. Report counts and paths for
-`downloaded`, `exists`, `duplicate`, `failed`, and `pending`. Treat `candidate`
-as dry-run evidence only, never as a downloaded PDF.
-Paper-run progress, including institutional cap and login-block messages, goes
-to stderr so stdout remains a single JSON result.
-
-When present, also report `renamed_from`, `filename_error`, and
-`filename_metadata_error`. Verify that a renamed file exists at the reported
-path before describing the migration as complete.
-
-Also report `title_resolution_status`, `title_resolution_reason`,
-`resolved_doi`, `expected_title`, `citation_title`, `publisher_title_match`, and
-`publisher_title_score` when present. Candidate details remain in the JSON
-report even when the flat CSV contains only their summary.
-
-The output directory contains:
-
-- accurately named, collision-safe PDF files;
-- `oa_fetch_manifest.csv`, the normalized unique manifest;
-- `oa_fetch_results.json` and `oa_fetch_results.csv`;
-- `oa_fetch_state.json`, the local resume state;
-- `oa_fetch_pending.csv` only when explicit continuation is required.
-
-Preserve every unresolved item in the report. State whether it lacked a
-resolvable identity, had no OA PDF, was outside the publisher allowlist, needed
-a login refresh, or was deferred by the institutional cap.
-
-## Stop conditions
-
-- `publisher_not_allowed`: leave it unresolved; do not expand the allowlist.
-- `title_resolution_ambiguous`: do not download; request a DOI, supported URL,
-  or corrected exact title.
-- `title_resolution_unresolved`: retain a failed result and request a DOI,
-  supported URL, or exact source title.
-- `publisher_title_mismatch`: do not request the PDF; retain a pending result
-  for manual identity resolution.
-- `publisher_title_unverifiable`: do not request the PDF; retain a pending
-  result because an expected title could not be checked on the publisher page.
-- `unsafe_landing_redirect`: stop that item; do not navigate to the rejected
-  target manually or expand the landing allowlist.
-- `landing_guard_error`: keep the item failed; do not retry with the browser
-  guard disabled. Repair or update Playwright/Chromium first; this is a
-  transport failure and the run exits `4`.
-- `unsafe_pdf_url`: stop that item; do not download the URL manually.
-- `landing_login_or_challenge`, `not_pdf_login_or_challenge`,
-  `profile_missing_login_required`, or repeated landing/PDF HTTP 4xx/challenge
-  responses: stop institutional work and request a visible login refresh. Do
-  not automate credentials or retry loops.
-- `institutional_cap_reached`: write/report pending items and wait for a new
-  user request.
-- No OA or entitled PDF: retain a failed result for manual retrieval.
-
-Interpret exits as: `0` all resolved (or manifest preflight produced usable
-rows), `1` failed/pending items remain, `2` invalid CLI/config, `3` missing or
-empty input, and `4` transport/output/state/report failure.
+Inspect stdout JSON and `oa_fetch_results.json`; report counts/paths for
+`downloaded`, `exists`, `duplicate`, `failed`, `pending`, unresolved reasons
+and relevant naming/storage errors. `candidate` is dry-run evidence, not a
+download. Verify renamed paths before claiming success. Exit codes: `0`
+resolved/usable preflight, `1` failed/pending, `2` CLI/config error, `3`
+unavailable input, `4` transport/persistence failure; early errors may lack JSON.

@@ -72,6 +72,9 @@ uv run python oa_fetch.py --batch "/absolute/references.csv" --manifest-out "/ab
 
 Only institutional access requires Playwright and Chromium:
 
+Run these installation commands only with authorization. Later CLI runs that
+honor a saved institutional preference also need `--extra institutional`.
+
 ```bash
 uv sync --extra institutional
 uv run --extra institutional python -m playwright install chromium
@@ -143,6 +146,9 @@ uv run --extra institutional python oa_fetch.py --batch "/absolute/papers/oa_fet
 ```
 
 Run one job at a time per output directory. Structurally invalid or unsupported-version state files remain unchanged and produce exit `4`, rather than being silently reset.
+
+For migration details, identity evidence and mixed pending reasons, read
+[recovery and naming](references/recovery-naming.md).
 
 | Status / reason | Meaning or action |
 | --- | --- |

@@ -6,9 +6,13 @@ Chrome's existing login does not transfer to it. Do not point Playwright at the
 ordinary Chrome default profile or copy/export cookies, storage state, tokens,
 or profile data to bridge the two. If browser access is missing, use the
 visible-login procedure in `SKILL.md` for the isolated profile, or stop at a
-login/challenge boundary.
+login/challenge boundary. Judge session validity by current access, not profile
+age; use headless only to reuse an already-working profile, never login repair.
 
-1. Freeze the requested journal/issue or reference-list subset and make a
+1. Validate access, identity, actual PDF saving and the result record on one
+   paper before the rest of the batch. If the chosen route cannot do this,
+   report the obstacle and switch only to an available authorized route.
+   Freeze the requested journal/issue or reference-list subset and make a
    stable identity list. Match against existing PDFs and resume records before
    opening tabs. Restrict publisher pages and resulting PDF requests to IEEE
    Xplore, Wiley Online Library, and Elsevier ScienceDirect, after OA-first
@@ -45,15 +49,13 @@ login/challenge boundary.
    serially at the authorized pace; give unresolved papers a specific reason
    without cycling through the same failed mechanism. Stop on login expiry,
    identity mismatch, payment barrier, or anti-bot challenge. Do not automate
-   authentication or bypass a guard.
+   authentication or bypass a guard, including proxy rotation or anti-bot evasion.
 
 Use a base delay of at least 4 seconds, jitter within 0--10 seconds, and at
 most 30 institutional attempts per run across both routes. The CLI enforces
 these limits; count interactive attempts explicitly, including earlier CLI
-attempts in the same run. Switching routes does not reset the count. When the
-user requests at least 3 seconds between papers, use the more conservative
-4-second minimum without another confirmation. Keep browser retrieval within
-the requested subset; do not turn a one-run pace into a standing preference.
+attempts in the same run. Switching routes does not reset the count. Keep retrieval
+within the requested subset; do not turn a one-run pace into a standing preference.
 
 Playwright source documentation: [downloads and save_as](https://playwright.dev/python/docs/downloads),
 [popup pages](https://playwright.dev/python/docs/pages), and

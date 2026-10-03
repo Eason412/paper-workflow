@@ -72,6 +72,9 @@ uv run python oa_fetch.py --batch "/absolute/references.csv" --manifest-out "/ab
 
 仅机构访问需要 Playwright 和 Chromium：
 
+这些安装命令须取得授权。后续 CLI 按已保存偏好启用机构访问时，也需添加
+`--extra institutional`。
+
 ```bash
 uv sync --extra institutional
 uv run --extra institutional python -m playwright install chromium
@@ -143,6 +146,8 @@ uv run --extra institutional python oa_fetch.py --batch "/absolute/papers/oa_fet
 ```
 
 同一输出目录一次只运行一个任务。结构损坏或版本不受支持的状态文件保留原样并返回退出码 `4`，不静默重置。
+
+迁移细节、身份解析证据和混合 pending 原因见[恢复与命名](references/recovery-naming.md)。
 
 | 状态 / 原因 | 含义或处理 |
 | --- | --- |
