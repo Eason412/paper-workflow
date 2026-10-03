@@ -95,10 +95,10 @@ skills/md-course-report-to-pdf/    报告排版源码、模板、示例与测试
 
 ```bash
 cd skills/oa-paper-fetch
-python3 -m unittest discover -s tests -v
+PYTHONDONTWRITEBYTECODE=1 uv run --no-project python -m unittest discover -s tests -v
 cd ../md-course-report-to-pdf
-python3 -m unittest discover -s tests -v
-python3 scripts/run_smoke_tests.py
+PYTHONDONTWRITEBYTECODE=1 uv run --no-project python -m unittest discover -s tests -v
+uv run scripts/run_smoke_tests.py
 ```
 
 问题反馈与 PR 应包含最小复现、预期和实际结果、解决思路及验证记录，见 [贡献指南](CONTRIBUTING.md)。日志、截图和输入样例须去除个人信息及认证数据。
@@ -106,7 +106,7 @@ python3 scripts/run_smoke_tests.py
 仓库根目录的 `.gitignore` 同样覆盖下载 PDF、获取状态、浏览器会话和默认排版产物；模板、源码及示例仍作为版本管理内容。根目录校验命令：
 
 ```bash
-python3 -m unittest discover -s tests -v
+PYTHONDONTWRITEBYTECODE=1 uv run --no-project python -m unittest discover -s tests -v
 ```
 
 ## 许可证

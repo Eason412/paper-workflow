@@ -17,8 +17,8 @@
 
 - 先检查 Git 状态，保留现有改动；只处理用户要求及其必要关联变更。
 - 行为修复补充回归测试。用户可见命令、状态或依赖变化同步使用说明；文献获取的中英文 README 保持一致。
-- 两套测试在各自 Skill 目录、独立进程中执行：`python3 -m unittest discover -s tests -v`。
-- 排版、模板或内容转换变化运行 `scripts/run_smoke_tests.py`，并按影响检查实际 PDF；纯文字修订不要求重跑完整编译。
+- 两套测试在各自 Skill 目录、独立进程中执行：`PYTHONDONTWRITEBYTECODE=1 uv run --no-project python -m unittest discover -s tests -v`。
+- 排版、模板或内容转换变化运行 `uv run scripts/run_smoke_tests.py`，并按影响检查实际 PDF；纯文字修订不要求重跑完整编译。
 - 并行任务按 Skill 或文件划分所有权；主代理负责公共文件、整合验证和范围变化通知，不回退其他执行者改动。
 
 ## 数据与发布

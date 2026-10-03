@@ -1,90 +1,40 @@
 ---
 name: md-course-report-to-pdf
-description: "把中文 Markdown 课程报告或作业排版成 LaTeX/PDF（封面、目录、章节分页、国标参考文献、中英文字体），并检查成品。普通 Markdown 文档转 PDF 不用本 skill。"
+description: "把中文 Markdown 课程报告或作业排版成带封面、摘要、目录、图表编号与参考文献的 PDF，并检查成品。普通 Markdown 转 PDF 不用本 skill。"
 ---
 
-# Markdown Course Report To PDF
+# 课程报告排版
 
-Follow this workflow to turn one Chinese Markdown course report into a polished PDF using the bundled scripts and template. Resolve `SKILL_DIR` to the absolute directory containing this loaded `SKILL.md`, regardless of installation location. Read `references/format-qa.md` only when changing layout/reference rules, debugging QA failures, or handling tables/citations beyond the quick path.
+以已有 Markdown 和本地图片生成 LaTeX/PDF；不自动改写正文或补写文献。
+将 `SKILL_DIR` 设为当前加载的 `SKILL.md` 所在目录的绝对路径，不依赖安装位置。
+调整格式、处理复杂图表引用或排查失败时，按需读 [格式与 QA](references/format-qa.md)。
 
-## Workflow
+## 输入与封面
 
-1. **Inputs**
-   - Identify the source `.md`, image folder, and desired output paths. If title, abstract, or keywords live in separate files, merge or confirm them before running the preprocessor.
-   - Before conversion, ask for or explicitly confirm the cover fields: course name, student name, and student ID. These fields differ across users and reports; do not silently reuse values from a previous run unless the user explicitly asks to reuse them.
-   - If the user says they do not need a cover, pass `--no-cover` and do not ask for course name, student name, student ID, or logo.
-   - **Thesis cover (optional):** if the user wants a 学位论文-style cover instead of the course cover, put `cover: thesis` in a YAML front matter block at the very top of the source `.md`, then add any needed fields from `degree_type`/`classification`/`secrecy`/`udc`/`author`/`advisor`/`advisor_title`/`degree_category`/`discipline`/`research_field`/`submit_date`; see `examples/学位论文模板.md` and README「学位论文封面」. Without `cover: thesis`, only `degree_type`, `advisor`, `degree_category`, `discipline`, or `research_field` automatically triggers the thesis layout; the other fields are supplementary. Once triggered, the wrapper renders the 附件 2.1 layout and does not require `--course/--student-name/--student-id`. Empty fields show as blank underlines. Leave 书脊/封二/声明 out of scope.
-   - Do not ask for or render a completion date on the cover unless a school-provided template explicitly requires it.
-   - If `assets/njust_logo.png` is present locally, the wrapper uses it as the default logo. Otherwise pass `--logo` for a real logo, or omit it to render the cover without a logo.
-   - Check Markdown/HTML image links with `grep -nE '^!\[|<img'`.
-   - Keep image paths relative to the Markdown/LaTeX project root.
-   - Treat Markdown `#` as the report title and Markdown `##` as body section headings after the title. For this numbered template, prefer headings without manual numeric prefixes, so LaTeX can generate section, figure, table, and equation numbers consistently.
-   - Do not feed page-by-page lecture notes or slide drafts directly into this course-report path. If the source contains many headings such as `## 第 1 页｜...` plus `屏幕：` / `讲：` / `图：`, first rewrite it into a formal report with abstract, chapter sections, body prose, figures/tables, and references. Only pass `--allow-slide-draft` when the user explicitly wants a raw slide-note PDF.
-   - Extract Chinese and English abstracts from the source into template metadata (`abstract_zh`, `keywords_zh`, `abstract_en`, `keywords_en`) and remove those abstract sections from the generated body. The final order must be cover, abstracts, TOC, then body.
-   - Keep level-1 chapter headings short and summary-style; avoid long sentence headings unless the source/template requires them.
-   - Enforce user/school limits such as keyword count before conversion.
+- `#` 是报告题目，正文从 `##` 开始；章节、图表与公式由模板编号，图表题只写纯标题。
+- 图片路径相对于源 Markdown 目录，不使用绝对路径或越出该目录的路径。
+- 课程封面：从本次请求或源文件读取课程、姓名、学号，只询问缺失字段，不复用历史信息；默认不加完成日期。
+- 无封面：传 `--no-cover`，无需询问封面字段或校徽。
+- 学位样式封面：源文件顶部写 `cover: thesis`；字段见 [学位封面示例](examples/学位论文模板.md)，仅借用字段布局，不代表完整学位论文规范。
+- 默认使用本地附带校徽（若存在）；`--logo` 可指定其他校徽。
 
-2. **Plan and verify references when requested**
-   - Search official sources and academic databases/pages before adding references; do not invent titles, authors, years, DOI, URLs, or journal details.
-   - Use concise GB/T 7714 numeric entries unless the school provides a stricter bibliography template. Keep rendered entries short; hide raw URLs/DOI URLs unless explicitly required.
-   - Keep each reference number at its first meaningful appearance in normal body prose. Later repeated citations to the same reference should be removed unless the user explicitly wants dense citation reminders; HTML comments, code blocks, Markdown links, image captions, pipe tables, and the reference list itself must not decide the first citation position. Preserve comment source text while excluding it from citation and bibliography detection.
-   - After rewriting, verify that cited numbers have matching reference-list entries and that unused reference entries are intentional. For detailed reference shapes and citation distribution rules, use `references/format-qa.md`.
+## 构建
 
-3. **Prepare figures**
-   - Insert figures into Markdown where they support the argument.
-   - Captions should be pure titles, for example `![方法流程图](image/figure_01.png)`.
-   - Do not include `图 1` in Markdown captions when LaTeX will auto-number figures.
-   - If the source already has a handwritten figure title near the image, convert it into the Markdown alt-text caption or remove it from body prose; do not keep both.
-   - Avoid duplicate or decorative figures.
+在报告目录执行；封面参数按所选模式调整：
 
-4. **Prepare tables**
-   - Prefer Markdown pipe tables for course reports. Pandoc emits `booktabs` rules (`\toprule`, `\midrule`, `\bottomrule`) for these tables, giving the expected three-line-table style.
-   - Keep table headers short. Prefer labels such as `路线`, `主要原料`, `优势`, `约束`, `内容`, and `意义` over long explanatory phrases.
-   - Add a table caption immediately after the table with no blank line, for example `: 方案对比`, so LaTeX can number it as `表 2.1`. Do not use `表: 标题`; Pandoc treats that as ordinary text rather than a table caption.
-   - Do not type manual labels such as `表 1` in the caption. Use a pure title and let the template number the table.
-   - For tables that may cross pages, verify repeated centered headers, a continued-table marker, and `\endfoot`/`\endlastfoot` bottom rules; do not trust a single short pipe-table smoke test after changing table layout.
+```bash
+uv run "$SKILL_DIR/scripts/build_course_report.py" report.md \
+  --course "课程名称" --student-name "姓名" --student-id "学号" \
+  --pdf "report.pdf"
+```
 
-5. **Build with the wrapper**
-   - Use the bundled wrapper for the normal path. It runs preprocessing, Pandoc, LaTeX postprocessing, compilation, JSON QA, optional PDF copy, and intermediate cleanup from the project root:
-     ```bash
-     # Set SKILL_DIR to the actual directory containing this SKILL.md.
-     SKILL_DIR="/absolute/path/to/md-course-report-to-pdf"
-     python3 "$SKILL_DIR/scripts/build_course_report.py" input.md \
-       --course "课程名称" \
-       --student-name "姓名" \
-       --student-id "学号" \
-       --logo "path/to/project-logo.png" \
-       --output-pdf "course_report.pdf"
-     ```
-     Omit `--logo` to use the local bundled logo when present. Pass an explicit path only when the report should use a specific real logo.
-   - Read the wrapper's stdout JSON summary and its `warnings` array; the same prepare warnings are also written to stderr for interactive visibility. Then inspect `latex/prepare_report.json` and `latex/postprocess_qa.json` before trusting the PDF. The wrapper blocks missing or unsafe body image paths, missing references, manual figure/table numbers, unsupported table-caption syntax, table-caption failures, inconsistent TOC font/width settings, and non-centered or non-underlined cover field layout before compile; fix the Markdown source or template before retrying.
-   - The preprocessor removes repeated numeric citation markers after their first normal body-prose appearance and normalizes Chinese citation punctuation to ASCII markers. Review `qa.citation_dedup` in `latex/prepare_report.json` when citation placement matters.
-   - The wrapper serializes builds from the same source directory, applies a bounded timeout to every external command, compiles in an isolated temporary directory, and atomically replaces successful PDF outputs. Use `--command-timeout SECONDS` only when a large report legitimately needs more than the default 180 seconds per command.
+重复数字引用默认仅保留首次正文出现；需要重复引用时传 `--keep-repeated-citations`。
+参考文献默认隐藏原始 URL/DOI URL；需要显示时传 `--keep-reference-urls`。
+不支持 `--citeproc`；使用源文件中的数字引用与文后条目，不编造来源。
+讲稿式输入会给出 warning，不会自动改写；`--allow-slide-draft` 已废弃且无效果。
 
-6. **Manual fallback**
-   - If debugging the pipeline or localizing a failure, run the bundled scripts in this order: `prepare_course_report.py`, Pandoc with `ctexart-course-report.tex` and `drop_first_h1.lua`, then `postprocess_course_tex.py`.
-   - Resolve script/template paths from the skill directory; do not assume `scripts/...` exists in the report project.
-   - Do not use `--citeproc` for this course-report path unless the template is extended with Pandoc CSL macros. Use concise numeric references in the Markdown source instead.
-   - The Pandoc Lua filter converts only semantic prose citations to `\textsupcite{n}` before the reference list. It deliberately leaves code, raw LaTeX, links, image labels, tables, and bibliography labels untouched.
-   - The Lua filter converts semantic untagged display math into numbered `equation` environments. Use explicit `align`/`equation` in Markdown when special alignment, tags, or labels are needed; raw LaTeX blocks are preserved.
+## 验收与维护
 
-7. **Use the ctexart template**
-   - Start from `$SKILL_DIR/assets/templates/ctexart-course-report.tex`.
-   - Keep generated files ASCII-named (`course_report.tex`, `latex/report_body.md`) because TeX tools can mishandle Chinese paths in some manual workflows.
-   - Compile from the project root so `image/...` paths resolve correctly.
-
-8. **QA**
-   - When scripts, template, table handling, citation handling, or wrapper behavior changed, run the bundled smoke tests before using the skill on a real report:
-     ```bash
-     python3 "$SKILL_DIR/scripts/run_smoke_tests.py"
-     ```
-   - Verify PDF exists, page count is nonzero, A4 portrait size is expected, and image count matches inserted figures.
-   - Inspect the cover, TOC, abstract, first body page, at least one chapter transition page, and the reference page when layout changed.
-   - Check `latex/prepare_report.json` and `latex/postprocess_qa.json` for missing images, invalid or unmatched citations, duplicated abstract/body headings, raw citation markers, unnumbered display math, unwanted bibliography URLs, table-caption failures, missing longtable continuation/final-page footers, missing continued captions, non-centered table text, and non-vertically-centered table columns.
-   - For layout, table, citation, or reference-rule changes, use the detailed checklist in `references/format-qa.md`.
-   - When compiler logs are available, check for `LaTeX Error`, `File not found`, large `Overfull \hbox`, missing images, and font failures.
-   - Mild `Underfull \vbox` and macOS font reproducibility warnings are usually acceptable if the PDF renders correctly.
-
-## Template Defaults and Common Fixes
-
-Default cover/TOC/font/reference settings and fixes for common build and layout problems are in `references/template-and-fixes.md`; read it when customizing the template or when a build or the final PDF QA fails.
+读取 stdout JSON 的 `warnings`，以及 `latex/prepare_report.json`、`latex/postprocess_qa.json`；失败时修正对应输入或实现。
+版式变化后检查实际 PDF 的封面、摘要、目录、正文、跨页表格和参考文献，结构 QA 不能替代目视检查。
+修改脚本或模板后运行 `uv run "$SKILL_DIR/scripts/run_smoke_tests.py"`，再用于真实报告。

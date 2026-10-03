@@ -30,7 +30,7 @@ class RepositoryHygieneTests(unittest.TestCase):
             "skills/md-course-report-to-pdf/SKILL.md",
             "skills/md-course-report-to-pdf/assets/templates/ctexart-course-report.tex",
             "skills/md-course-report-to-pdf/examples/minimal_report.md",
-            "skills/md-course-report-to-pdf/references/njust-thesis-format.doc",
+            "skills/md-course-report-to-pdf/references/format-qa.md",
         ]
         with tempfile.TemporaryDirectory() as raw:
             sandbox = Path(raw)
