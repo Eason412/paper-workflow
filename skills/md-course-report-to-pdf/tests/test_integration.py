@@ -5,7 +5,7 @@ import contextlib
 import io
 import json
 import os
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 import shutil
 import subprocess
 import sys
@@ -82,7 +82,7 @@ class BuildIntegrationTests(unittest.TestCase):
                 ],
                 cwd=ROOT,
                 text=True,
-            encoding="utf-8",
+                encoding="utf-8",
                 capture_output=True,
                 check=False,
                 timeout=30,
@@ -105,7 +105,7 @@ class BuildIntegrationTests(unittest.TestCase):
                 ],
                 cwd=ROOT,
                 text=True,
-            encoding="utf-8",
+                encoding="utf-8",
                 capture_output=True,
                 check=False,
                 timeout=30,
@@ -233,6 +233,7 @@ class ReportBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             result, _ = self.build_report(Path(tmp), "# 报告\n\n## 方法[1]\n\n正文。\n\n## 参考文献\n[1] A.\n")
             self.assertNotEqual(result.returncode, 0)
+            self.assertIn("raw citation markers remain", result.stderr)
             self.assertFalse((Path(tmp) / "course_report.pdf").exists())
 
     def test_appendix_keeps_url_and_converts_its_citation(self):
@@ -255,10 +256,18 @@ class ReportBehaviorTests(unittest.TestCase):
                 result, tex = self.build_report(Path(tmp), "# 报告\n\n## 正文\n\n" + markdown)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn(r"\caption{标题}", tex)
-        for markdown in (table, table + ": 表 1 标题\n"):
+        with tempfile.TemporaryDirectory() as tmp:
+            result, tex = self.build_report(Path(tmp), "# 报告\n\n## 正文\n\n" + table + ": 2023 年销售对比\n")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(r"\caption{2023 年销售对比}", tex)
+        for markdown, reason in (
+            (table, "longtable captions are missing"),
+            (table + ": 表 1 标题\n", "manual table caption numbers remain"),
+        ):
             with self.subTest(markdown=markdown), tempfile.TemporaryDirectory() as tmp:
                 result, _ = self.build_report(Path(tmp), "# 报告\n\n## 正文\n\n" + markdown)
                 self.assertNotEqual(result.returncode, 0)
+                self.assertIn(reason, result.stderr)
 
     def test_raw_display_math_with_tag_or_label_builds(self):
         for formula in (r"\[x+y\tag{A}\]", r"\[x+y\label{eq:custom}\]"):

@@ -235,6 +235,15 @@ class PrepareRegressionTests(unittest.TestCase):
         self.assertEqual(prepare.extract_reference_numbers(body), [])
 
 
+    def test_reference_section_keeps_subheadings_and_ends_at_next_section(self) -> None:
+        lines = [
+            "# 报告", "## 正文", "引用[1][2]。", "## 参考文献",
+            "### 中文文献", "[1] A.", "### 英文文献", "[2] B.", "## 附录", "附录。",
+        ]
+        self.assertEqual(prepare.reference_section_bounds(lines), (3, 8))
+        self.assertEqual(prepare.reference_section_bounds(lines[:8]), (3, 8))
+
+
 class BuildRegressionTests(unittest.TestCase):
     def test_pdf_publication_copies_bytes_without_removing_input(self):
         with tempfile.TemporaryDirectory() as tmp:

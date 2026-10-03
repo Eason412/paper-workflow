@@ -289,7 +289,7 @@ def qa_report(tex: str, body: str, refs: str) -> dict[str, object]:
             )
             for table in longtables
         ),
-        "table_captions_with_manual_numbers": re.findall(r"\\caption(?:\[[^\]]*\])?\{\s*(?:(?:表|Table)\s*)?\d+(?:\.\d+)?[^}]*\}", tex),
+        "table_captions_with_manual_numbers": re.findall(r"\\caption(?:\[[^\]]*\])?\{\s*(?:表|Table)\s*\d+(?:\.\d+)?[^}]*\}", tex),
         "thesis_cover_rendered": thesis_cover_rendered,
         "course_cover_rendered": course_cover_rendered,
     }
