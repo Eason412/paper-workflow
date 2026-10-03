@@ -202,7 +202,7 @@ When this **CLI profile** needs login, tell the user that a visible browser will
 open and they must complete SSO/MFA themselves. Run:
 
 ```bash
-uv run --project "$SKILL_DIR" python "$SKILL_DIR/oa_fetch.py" --institutional-login
+uv run --project "$SKILL_DIR" --extra institutional python "$SKILL_DIR/oa_fetch.py" --institutional-login
 ```
 
 The command opens IEEE Xplore, ScienceDirect, and Wiley Online Library. Do not

@@ -50,8 +50,8 @@ ln -s "$PWD/skills/md-course-report-to-pdf" "$HOME/.agents/skills/md-course-repo
 
 | 用途 | 依赖 |
 | --- | --- |
-| OA 文献获取 | Python 3.10+，仅 Python 标准库 |
-| 机构登录与全文获取 | 另需 Playwright 和 Chromium；安装步骤见文献获取说明 |
+| OA 文献获取 | 独立脚本 Python 3.10+，仅 Python 标准库；uv 环境 Python 3.12+ |
+| 机构登录与全文获取 | uv 的 `institutional` 可选依赖与 Chromium；安装步骤见文献获取说明 |
 | 课程报告排版 | Python 3.10+、Pandoc、Tectonic 或 XeLaTeX、可用中文字体 |
 
 ## 使用示例

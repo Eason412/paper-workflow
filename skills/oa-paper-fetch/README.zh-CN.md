@@ -4,7 +4,7 @@
 
 文献身份解析、开放获取检索与授权机构全文下载。支持完整标题、DOI、URL、Markdown、CSV 和逐行清单，提供批量处理、浏览器登录会话复用、准确文件命名及失败项续传。
 
-默认输出目录为 `~/Desktop/Papers`；当前 CLI 版本为 `0.5.0`，独立运行的 OA 层需要 Python 3.10+、仅使用标准库；uv 管理的环境使用 Python 3.12。
+默认输出目录为 `~/Desktop/Papers`；当前 CLI 版本为 `0.5.0`，独立运行的 OA 层需要 Python 3.10+、仅使用标准库；uv 管理的环境需要 Python 3.12+。纯 OA 命令不安装第三方包；机构访问按下文启用可选依赖。
 
 ## 安装与入口
 
@@ -29,7 +29,7 @@ Codex 通过 [SKILL.md](SKILL.md) 读取规范工作流，通过 `agents/openai.
 ## OA 文献获取
 
 ```bash
-uv run python oa_fetch.py --url "https://arxiv.org/abs/1706.03762" --format text
+uv run python oa_fetch.py --oa-only --url "https://arxiv.org/abs/1706.03762" --format text
 ```
 
 成功后，PDF 和结果报告保存到默认目录。可使用 `--out` 指定本次输出位置，或通过 `--save-config` 保存用户明确指定的默认位置。
@@ -51,7 +51,7 @@ ref-002,,10.xxxx/yyyy,
 以下绝对路径均为占位符，替换为实际输入和输出路径：
 
 ```bash
-uv run python oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --format text
+uv run python oa_fetch.py --oa-only --batch "/absolute/references.csv" --out "/absolute/papers" --format text
 ```
 
 支持 Markdown 表格和逐行纯文本。DOI、URL 为硬去重依据；同标题记录只标记疑似重复，保留各自身份。重复输入 ID 会分配无冲突后缀。
@@ -73,14 +73,14 @@ uv run python oa_fetch.py --batch "/absolute/references.csv" --manifest-out "/ab
 仅机构访问需要 Playwright 和 Chromium：
 
 ```bash
-uv sync
-uv run python -m playwright install chromium
+uv sync --extra institutional
+uv run --extra institutional python -m playwright install chromium
 ```
 
 ### 首次登录与会话刷新
 
 ```bash
-uv run python oa_fetch.py --institutional-login
+uv run --extra institutional python oa_fetch.py --institutional-login
 ```
 
 程序打开可见浏览器及 IEEE Xplore、Wiley Online Library、Elsevier ScienceDirect 页面。用户自行选择机构访问并完成 SSO/MFA，完成后回到终端按 Enter。
@@ -90,7 +90,7 @@ uv run python oa_fetch.py --institutional-login
 ### 授权机构获取
 
 ```bash
-uv run python oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --institutional --format text
+uv run --extra institutional python oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --institutional --format text
 ```
 
 OA 阶段优先执行，未完成且身份符合条件的记录才进入机构阶段。机构范围固定为 IEEE Xplore、Wiley Online Library 和 Elsevier ScienceDirect。
@@ -139,7 +139,7 @@ uv run python oa_fetch.py --institutional --inst-delay 4 --inst-jitter 3 --max-i
 需要显式继续时生成 `oa_fetch_pending.csv`。登录失效须先刷新会话，批次上限须等待新的继续请求：
 
 ```bash
-uv run python oa_fetch.py --batch "/absolute/papers/oa_fetch_pending.csv" --out "/absolute/papers" --institutional
+uv run --extra institutional python oa_fetch.py --batch "/absolute/papers/oa_fetch_pending.csv" --out "/absolute/papers" --institutional
 ```
 
 同一输出目录一次只运行一个任务。结构损坏或版本不受支持的状态文件保留原样并返回退出码 `4`，不静默重置。
@@ -169,11 +169,10 @@ uv run python oa_fetch.py --batch "/absolute/papers/oa_fetch_pending.csv" --out 
 ## 开发与反馈
 
 ```bash
-uv run pytest -q
-uv run python -m py_compile oa_fetch.py institutional_fetch.py config.py manifest.py store.py
+PYTHONDONTWRITEBYTECODE=1 uv run python -m unittest discover -s tests -v
 uv run python oa_fetch.py --version
 ```
 
-离线测试使用临时目录和模拟响应；真实机构登录及下载由用户在授权环境完成。开发规则见 [AGENTS.md](AGENTS.md)，下载工作流见 [SKILL.md](SKILL.md)。
+离线测试使用临时配置和模拟响应，并在测试进程与 CLI 子进程中阻断未模拟的网络和浏览器访问；真实机构登录及下载由用户在授权环境完成。开发规则见 [AGENTS.md](AGENTS.md)，下载工作流见 [SKILL.md](SKILL.md)。
 
 问题与 PR 提交至 [Paper Workflow](https://github.com/Eason412/paper-workflow/issues)，附最小复现、预期/实际结果及脱敏日志。许可证：[MIT](LICENSE)。

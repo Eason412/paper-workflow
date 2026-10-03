@@ -45,11 +45,10 @@ Skill 自动触发不扩大依赖安装、偏好保存、访问范围或登录�
 本目录的离线检查：
 
 ```bash
-uv run python -m unittest discover -s tests -v
-uv run python -m py_compile oa_fetch.py institutional_fetch.py config.py manifest.py store.py
+PYTHONDONTWRITEBYTECODE=1 uv run python -m unittest discover -s tests -v
 uv run python oa_fetch.py --help
 uv run python oa_fetch.py --version
 git diff --check
 ```
 
-测试仅使用临时目录与模拟响应；真实 OA、机构登录和出版商下载分别取得授权并记录结果。已有 `pdfs/`、下载目录及浏览器会话不属于测试夹具，不检查或清理无关用户产物。
+测试仅使用临时目录、显式临时配置与模拟响应；测试进程和 CLI 子进程统一阻断未模拟的网络、Playwright 入口及真实默认配置读取。仅测 OA 的调用显式使用 `--oa-only`。真实 OA、机构登录和出版商下载分别取得授权并记录结果。已有 `pdfs/`、下载目录及浏览器会话不属于测试夹具，不检查或清理无关用户产物。

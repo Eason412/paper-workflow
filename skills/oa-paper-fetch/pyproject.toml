@@ -2,11 +2,9 @@
 name = "oa-paper-fetch"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = [
-    "playwright>=1.40",
-]
+dependencies = []
 
-[dependency-groups]
-dev = [
-    "pytest>=9.1.1",
+[project.optional-dependencies]
+institutional = [
+    "playwright>=1.40",
 ]

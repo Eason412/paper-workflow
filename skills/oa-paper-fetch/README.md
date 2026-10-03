@@ -4,7 +4,7 @@
 
 Paper identity resolution, open-access discovery, and entitled institutional PDF acquisition. Supports exact titles, DOIs, URLs, Markdown, CSV, and line-based lists, with batch processing, browser-session reuse, bibliographic filenames, and resumable failures.
 
-The default output is `~/Desktop/Papers`. CLI version: `0.5.0`. The standalone OA layer requires Python 3.10+ and uses only the standard library; the uv-managed environment uses Python 3.12.
+The default output is `~/Desktop/Papers`. CLI version: `0.5.0`. The standalone OA layer requires Python 3.10+ and uses only the standard library; the uv-managed environment requires Python 3.12+. Plain OA commands install no third-party packages; institutional access opts into the extra below.
 
 ## Installation and entrypoints
 
@@ -29,7 +29,7 @@ Codex uses [SKILL.md](SKILL.md) as the canonical workflow and `agents/openai.yam
 ## Open-access acquisition
 
 ```bash
-uv run python oa_fetch.py --url "https://arxiv.org/abs/1706.03762" --format text
+uv run python oa_fetch.py --oa-only --url "https://arxiv.org/abs/1706.03762" --format text
 ```
 
 Successful PDFs and reports are saved to the default directory. Use `--out` for one run or `--save-config` to persist an explicitly requested default.
@@ -51,7 +51,7 @@ ref-002,,10.xxxx/yyyy,
 Replace the absolute path placeholders with actual input and output locations:
 
 ```bash
-uv run python oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --format text
+uv run python oa_fetch.py --oa-only --batch "/absolute/references.csv" --out "/absolute/papers" --format text
 ```
 
 Markdown tables and one-item-per-line text are also supported. DOI and URL matches are hard duplicates; matching titles alone remain separate possible duplicates. Repeated input IDs receive collision-free suffixes.
@@ -73,14 +73,14 @@ uv run python oa_fetch.py --batch "/absolute/references.csv" --manifest-out "/ab
 Only institutional access requires Playwright and Chromium:
 
 ```bash
-uv sync
-uv run python -m playwright install chromium
+uv sync --extra institutional
+uv run --extra institutional python -m playwright install chromium
 ```
 
 ### Initial login and session refresh
 
 ```bash
-uv run python oa_fetch.py --institutional-login
+uv run --extra institutional python oa_fetch.py --institutional-login
 ```
 
 A visible browser opens IEEE Xplore, Wiley Online Library, and Elsevier ScienceDirect. The user selects institutional access and completes SSO/MFA, then presses Enter in the terminal.
@@ -90,7 +90,7 @@ The browser persists login state, including browser-managed cookies, in the isol
 ### Entitled institutional acquisition
 
 ```bash
-uv run python oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --institutional --format text
+uv run --extra institutional python oa_fetch.py --batch "/absolute/references.csv" --out "/absolute/papers" --institutional --format text
 ```
 
 OA runs first. Only unresolved items with eligible identities enter institutional fallback. Supported publishers are IEEE Xplore, Wiley Online Library, and Elsevier ScienceDirect.
@@ -139,7 +139,7 @@ Filenames follow `year_first-author_full-title_stable-hash.pdf`, retaining an 8-
 `oa_fetch_pending.csv` is generated when explicit continuation is needed. Refresh expired login before resuming; wait for a new continuation request after reaching the cap:
 
 ```bash
-uv run python oa_fetch.py --batch "/absolute/papers/oa_fetch_pending.csv" --out "/absolute/papers" --institutional
+uv run --extra institutional python oa_fetch.py --batch "/absolute/papers/oa_fetch_pending.csv" --out "/absolute/papers" --institutional
 ```
 
 Run one job at a time per output directory. Structurally invalid or unsupported-version state files remain unchanged and produce exit `4`, rather than being silently reset.
@@ -169,11 +169,10 @@ Exit codes: `0` success or usable preflight; `1` failed/pending items; `2` inval
 ## Development and feedback
 
 ```bash
-uv run pytest -q
-uv run python -m py_compile oa_fetch.py institutional_fetch.py config.py manifest.py store.py
+PYTHONDONTWRITEBYTECODE=1 uv run python -m unittest discover -s tests -v
 uv run python oa_fetch.py --version
 ```
 
-Offline tests use temporary directories and mocked responses. Real institutional login and downloads require the user's authorized environment. See [AGENTS.md](AGENTS.md) for maintenance rules and [SKILL.md](SKILL.md) for the download workflow.
+Offline tests use temporary configurations and mocked responses, and reject unmocked network or browser access in both the test process and child CLI processes. Real institutional login and downloads require the user's authorized environment. See [AGENTS.md](AGENTS.md) for maintenance rules and [SKILL.md](SKILL.md) for the download workflow.
 
 Submit issues and PRs to [Paper Workflow](https://github.com/Eason412/paper-workflow/issues) with a minimal reproduction, expected/actual results, and redacted logs. License: [MIT](LICENSE).
