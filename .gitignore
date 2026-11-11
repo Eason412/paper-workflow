@@ -22,16 +22,5 @@ oa_fetch_pending.csv
 profile/
 .oa-paper-fetch/
 
-# Default report build artifacts. Source templates remain trackable.
-latex/
-course_report.tex
-*.aux
-*.out
-*.toc
-*.xdv
-*.fls
-*.fdb_latexmk
-*.synctex.gz
-
 # 范文摘自期刊论文，受版权保护，只留在本机。
 skills/paper-writing-zh/references/examples.md

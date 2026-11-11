@@ -16,11 +16,9 @@ class RepositoryHygieneTests(unittest.TestCase):
             "oa_fetch_manifest.csv", "oa_fetch_pending.csv",
             "output/oa_fetch_results.json", "output/oa_fetch_results.csv",
             "profile/Default/Cookies", ".oa-paper-fetch/profile/Preferences",
-            "course_report.tex", "latex/report_body.md", "report.aux",
             "output/paper.pdf.part-example",
             "skills/oa-paper-fetch/output/paper.pdf",
             "skills/oa-paper-fetch/profile/Default/Cookies",
-            "skills/course-report/latex/metadata.yaml",
             "skills/paper-writing-zh/references/examples.md",
         ]
         sources = [
@@ -28,10 +26,6 @@ class RepositoryHygieneTests(unittest.TestCase):
             "skills/oa-paper-fetch/SKILL.md",
             "skills/oa-paper-fetch/oa_fetch.py",
             "skills/oa-paper-fetch/tests/test_store_resume.py",
-            "skills/course-report/SKILL.md",
-            "skills/course-report/assets/templates/ctexart-course-report.tex",
-            "skills/course-report/examples/minimal_report.md",
-            "skills/course-report/references/format-qa.md",
             "skills/paper-figure/references/journal_specs.md",
             "skills/paper-writing-zh/SKILL.md",
             "skills/paper-writing-zh/references/sentence.md",
@@ -42,7 +36,6 @@ class RepositoryHygieneTests(unittest.TestCase):
             subprocess.run(["git", "init", "-q", str(sandbox)], check=True, capture_output=True)
             for relative in (
                 ".gitignore", "skills/oa-paper-fetch/.gitignore",
-                "skills/course-report/.gitignore",
             ):
                 target = sandbox / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
