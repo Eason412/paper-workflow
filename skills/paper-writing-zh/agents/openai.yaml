@@ -1,0 +1,4 @@
+interface:
+  display_name: "中文论文写作"
+  short_description: "中文论文的句子、搭配、段首句、图表前后文和摘要结论怎么写，改稿后核对有没有丢信息"
+  default_prompt: "使用 $paper-writing-zh 把这段中文论文改顺，不增不减，并列出改了什么。"

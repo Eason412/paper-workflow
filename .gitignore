@@ -32,3 +32,6 @@ course_report.tex
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+
+# 范文摘自期刊论文，受版权保护，只留在本机。
+skills/paper-writing-zh/references/examples.md
