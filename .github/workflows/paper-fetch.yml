@@ -4,12 +4,14 @@ on:
   push:
     paths:
       - "skills/oa-paper-fetch/**"
+      - "skills/paper-writing-zh/**"
       - "tests/**"
       - ".gitignore"
       - ".github/workflows/paper-fetch.yml"
   pull_request:
     paths:
       - "skills/oa-paper-fetch/**"
+      - "skills/paper-writing-zh/**"
       - "tests/**"
       - ".gitignore"
       - ".github/workflows/paper-fetch.yml"

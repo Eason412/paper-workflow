@@ -21,6 +21,7 @@ class RepositoryHygieneTests(unittest.TestCase):
             "skills/oa-paper-fetch/output/paper.pdf",
             "skills/oa-paper-fetch/profile/Default/Cookies",
             "skills/course-report/latex/metadata.yaml",
+            "skills/paper-writing-zh/references/examples.md",
         ]
         sources = [
             "README.md", "AGENTS.md",
@@ -32,6 +33,9 @@ class RepositoryHygieneTests(unittest.TestCase):
             "skills/course-report/examples/minimal_report.md",
             "skills/course-report/references/format-qa.md",
             "skills/paper-figure/references/journal_specs.md",
+            "skills/paper-writing-zh/SKILL.md",
+            "skills/paper-writing-zh/references/sentence.md",
+            "skills/paper-writing-zh/scripts/compare_facts.py",
         ]
         with tempfile.TemporaryDirectory() as raw:
             sandbox = Path(raw)

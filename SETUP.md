@@ -2,7 +2,7 @@
 
 This manual is for Agents with file and terminal access. It links the repository's Skills into personal discovery directories and checks the runtimes needed for the selected tasks. Read the steps in order and execute only the dependency checks relevant to those tasks.
 
-Available Skills: `oa-paper-fetch`, `course-report`, and `paper-figure`. Each complete `skills/<name>` directory is independently installable. The supplied installer links **all** directories under `skills/` into **both** Codex and Claude Code; it has no Skill-selection or host-selection option, so a single Skill or a single host uses the manual path at the end of step 2.1. Another host can use the same complete directories through its documented discovery mechanism.
+Available Skills: `oa-paper-fetch`, `course-report`, `paper-figure`, and `paper-writing-zh`. Each complete `skills/<name>` directory is independently installable. The supplied installer links **all** directories under `skills/` into **both** Codex and Claude Code; it has no Skill-selection or host-selection option, so a single Skill or a single host uses the manual path at the end of step 2.1. Another host can use the same complete directories through its documented discovery mechanism.
 
 Preserve existing checkout changes, licenses, and third-party notices. Setup does not authorize commits, pushes, paper downloads, paid calls, or changes to unrelated services. Existing explicit authorization covers only its stated scope. Obtain user consent before software installation, personal configuration changes, link replacement or backup, institutional login, and resource downloads; do not ask again for actions already authorized.
 
@@ -36,7 +36,7 @@ Do not run `git clone` into an existing checkout. From its root, establish the a
 ```sh
 REPO_DIR="$(pwd -P)"
 git status --short
-for name in oa-paper-fetch course-report paper-figure; do
+for name in oa-paper-fetch course-report paper-figure paper-writing-zh; do
   test -f "$REPO_DIR/skills/$name/SKILL.md" || echo "missing $name"
 done
 ```
@@ -44,14 +44,14 @@ done
 ```powershell
 $RepoDir = (Get-Location).Path
 git status --short
-foreach ($Name in 'oa-paper-fetch', 'course-report', 'paper-figure') {
+foreach ($Name in 'oa-paper-fetch', 'course-report', 'paper-figure', 'paper-writing-zh') {
     Get-Item -LiteralPath (Join-Path $RepoDir "skills\$Name\SKILL.md") -ErrorAction Stop
 }
 ```
 
 Read [AGENTS.md (Chinese)](AGENTS.md), [scripts/link-skills.sh](scripts/link-skills.sh), and the selected Skill specifications in the [catalog](README.en.md). Record the chosen path and tasks; for paper acquisition, distinguish OA-only, institutional CLI, and an existing authorized browser session.
 
-**Success criteria:** the three Skill specifications and installer are present, the stable checkout path is recorded, and existing changes are preserved.
+**Success criteria:** the four Skill specifications and installer are present, the stable checkout path is recorded, and existing changes are preserved.
 
 ## 🔗 2. Installation Preview and Links
 
@@ -371,6 +371,25 @@ uv run --no-project --with matplotlib --with seaborn python "$PLOT_SCRIPT"
 Set `PLOT_SCRIPT` (or `$PLOT_SCRIPT` in PowerShell) to the actual Agent-created script. Do not claim a rendered check from import success alone.
 
 **Success criteria:** plotting imports succeed, the required fonts are present, and a sample renders with readable labels at final dimensions. PDF readiness additionally includes successful font inspection. No journal-compliance claim is established by setup alone.
+
+### 4.4. paper-writing-zh
+
+Sources: [SKILL.md (Chinese)](skills/paper-writing-zh/SKILL.md), [sentences and collocations (Chinese)](skills/paper-writing-zh/references/sentence.md), and [compare_facts.py](skills/paper-writing-zh/scripts/compare_facts.py).
+
+Drafting from scratch needs only an Agent able to read the specification and references. Revising an existing draft additionally uses `scripts/compare_facts.py` (Python 3.9+, standard library only) to check numbers, citations, symbols, punctuation shifts, and bilingual abstract consistency.
+
+Verify the comparison script on a disposable pair of files outside the repository:
+
+```sh
+SKILL_DIR="$REPO_DIR/skills/paper-writing-zh"
+SETUP_TMP="$(mktemp -d)"
+printf '误差为 1.5%% [3]。\n' > "$SETUP_TMP/old.md"
+cp "$SETUP_TMP/old.md" "$SETUP_TMP/new.md"
+uv run --no-project "$SKILL_DIR/scripts/compare_facts.py" "$SETUP_TMP/old.md" "$SETUP_TMP/new.md"
+rm -rf "$SETUP_TMP"
+```
+
+**Success criteria:** the specification and references are readable, and the comparison script exits `0` on identical disposable inputs.
 
 ## 🔐 5. Institutional Authentication
 

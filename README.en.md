@@ -2,19 +2,20 @@
 
 [中文](README.md) | English
 
-**Task-specific Skills for paper acquisition, course reports, and research charts.** This repository contains three academic Agent Skills: `oa-paper-fetch`, `course-report`, and `paper-figure`. A Skill is a task specification defined in `SKILL.md`, optionally accompanied by scripts, templates, and references.
+**Task-specific Skills for paper acquisition, research charts, Chinese paper writing, and course reports.** This repository contains four academic Agent Skills: `oa-paper-fetch`, `course-report`, `paper-figure`, and `paper-writing-zh`. A Skill is a task specification defined in `SKILL.md`, optionally accompanied by scripts, templates, and references.
 
 Current version: [V0.1.0](https://github.com/Eason412/paper-workflow/releases/tag/V0.1.0) ([all versions and release notes](https://github.com/Eason412/paper-workflow/releases)).
 
 > ⚠️ Dependencies vary by task. Institutional full-text access requires existing entitlement and personal authentication by the user. Paper acquisition does not support Sci-Hub or paywall bypasses.
 
-Writing and documentation Skills are maintained in the sister repository [doc-workflow](https://github.com/Eason412/doc-workflow) (Chinese).
+Paper writing belongs in this repository; other writing and documentation Skills are maintained in the sister repository [doc-workflow](https://github.com/Eason412/doc-workflow) (Chinese).
 
 ## ✨ Features
 
 - 📚 **OA-first acquisition with resumable batch downloads**: Accept DOIs, titles, links, and reference lists; download open-access PDFs first, reuse signed-in IEEE, Wiley, or ScienceDirect sessions when needed, and reuse verified downloads.
 - 🖨️ **Complete course report layout**: Convert course reports written in Chinese Markdown into PDFs with covers, abstracts, contents, numbered figures, tables, and equations, and a reference list, with Markdown and LaTeX structural checks and a final inspection workflow.
 - 📊 **Argument-driven research charts**: Select charts around the research argument and data structure, with journal dimensions, readable type, Chinese fonts, colorblind-safe palettes, vector exports, and rendered visual inspection.
+- ✍️ **Fact-preserving Chinese paper writing and revision**: Cover sentence collocations, topic-sentence flow, figure and table discussion, and front or back matter, with a fact-comparison script that checks numbers, citations, symbols, punctuation, and bilingual abstract figures after edits.
 
 ## 🧩 Skill Catalog
 
@@ -23,10 +24,11 @@ Writing and documentation Skills are maintained in the sister repository [doc-wo
 | `oa-paper-fetch` | Open access, entitled full text, batches, and resumption | [Task specification](skills/oa-paper-fetch/SKILL.md) · [Chinese guide](skills/oa-paper-fetch/README.zh-CN.md) · [English guide](skills/oa-paper-fetch/README.md) |
 | `course-report` | PDF layout and checks for Chinese course reports | [Task specification (Chinese)](skills/course-report/SKILL.md) · [User guide (Chinese)](skills/course-report/README.md) |
 | `paper-figure` | Chart selection, dimensions, and export checks | [Task specification (Chinese)](skills/paper-figure/SKILL.md) · [Chart selection (Chinese)](skills/paper-figure/references/chart_selection.md) |
+| `paper-writing-zh` | Drafting, revising, and fact-checking Chinese research and review papers | [Task specification (Chinese)](skills/paper-writing-zh/SKILL.md) · [Sentences and collocations (Chinese)](skills/paper-writing-zh/references/sentence.md) |
 
 - **Standalone installation**: Each `skills/<name>` directory is a complete installation unit with its runtime resources.
 - **Hosts**: Codex, Claude Code, and other Agents supporting `SKILL.md` can use these specifications; the host provides script execution, browser control, and image inspection capabilities.
-- **Scope**: `course-report` targets course reports and assignments, and its thesis-style option adapts only the cover field layout; `paper-figure` targets data charts, and schematic, flow, and architecture diagrams are outside its scope.
+- **Scope**: `course-report` targets course reports and assignments, and its thesis-style option adapts only the cover field layout; `paper-figure` targets data charts, and schematic, flow, and architecture diagrams are outside its scope; `paper-writing-zh` targets Chinese research papers, review papers, and theses, while non-paper Chinese writing belongs in `doc-workflow`.
 
 ## 🛠️ Runtime Requirements
 
@@ -35,8 +37,9 @@ Writing and documentation Skills are maintained in the sister repository [doc-wo
 | `oa-paper-fetch` | uv, Python 3.12+; OA uses the standard library | Institutional CLI: Playwright 1.40+, Chrome or Chromium; existing session: browser-control tool |
 | `course-report` | uv, Python 3.10+, Pandoc; no third-party Python packages | PDF: Tectonic or XeLaTeX, Latin and Chinese fonts; additional QA: Poppler, qpdf |
 | `paper-figure` | uv, Python, matplotlib, seaborn, image inspection tool | Chinese charts: Chinese fonts; PDF font checks: `pdffonts` |
+| `paper-writing-zh` | Agent; text specification needs no extra packages | Revision fact-check script: uv, Python 3.9+ (standard library only) |
 
-- **Python versions**: The standalone OA script in `oa-paper-fetch` supports Python 3.10+, while its uv project requires Python 3.12+; `paper-figure` declares no fixed Python or plotting-library versions.
+- **Python versions**: The standalone OA script in `oa-paper-fetch` supports Python 3.10+, while its uv project requires Python 3.12+; the fact-check script in `paper-writing-zh` uses the standard library only; `paper-figure` declares no fixed Python or plotting-library versions.
 - **LaTeX compilation**: `course-report` needs Pandoc even for LaTeX-only output; it prefers Tectonic when both compilers are available, and the first compilation may download TeX resources.
 - **Dependency sources**: Dependency sources and validation steps are in [SETUP.md](SETUP.md).
 
@@ -51,6 +54,7 @@ Writing and documentation Skills are maintained in the sister repository [doc-wo
 | Paper output and access preferences | `~/.oa-paper-fetch/config.json`, CLI arguments | Default output, access mode, and per-task choices |
 | Report cover and citations | Source Markdown metadata, build arguments | Course, name, student ID, cover mode, and citation retention |
 | Chart specifications | Task request, plotting code | Research argument, journal, dimensions, fonts, and output format |
+| Paper terminology and journal conventions | Per-paper glossary or symbol table in the project folder, task request | Fixed term translations, symbol definitions, and target journal figure/table style |
 
 ## 📁 Repository Structure
 
@@ -58,14 +62,15 @@ Writing and documentation Skills are maintained in the sister repository [doc-wo
 | --- | --- |
 | `skills/<name>/SKILL.md` | Task entry point for each Skill |
 | `skills/<name>/agents/openai.yaml` | Codex display metadata |
-| `skills/<name>/references/` | Workflow, layout, and chart-selection references |
+| `skills/<name>/references/` | Workflow, layout, chart-selection, and writing references |
 | `skills/course-report/scripts/`, `assets/`, `examples/` | Report builds, templates, and samples |
+| `skills/paper-writing-zh/scripts/` | Fact-comparison script for paper revisions |
 | `skills/oa-paper-fetch/*.py` | Acquisition, identity resolution, configuration, and recovery state |
 | `skills/<name>/tests/` (where present), `tests/` | Skill regressions and repository hygiene checks |
 | [scripts/link-skills.sh](scripts/link-skills.sh) | Link installation for personal Skill entries |
 | [SETUP.md](SETUP.md) | Agent setup and validation manual |
 | [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md) | Project rules and contribution requirements (Chinese) |
-| [.github/workflows/](.github/workflows/) | Paper-fetch regression and report PDF build configurations |
+| [.github/workflows/](.github/workflows/) | Paper-fetch, paper-writing checks, and report PDF build configurations |
 
 The author edits Skills directly in the local checkout, then validates, commits, and pushes changes. Linked installations share this source with personal Skill entries. Rerun the installation script after adding a Skill.
 
@@ -88,5 +93,6 @@ Licenses are defined by files within individual Skill directories. There is no c
 | `oa-paper-fetch` | [MIT](skills/oa-paper-fetch/LICENSE) | Eason412 |
 | `course-report` | [MIT](skills/course-report/LICENSE) | Eason412 |
 | `paper-figure` | [MIT](skills/paper-figure/LICENSE) | Haojae |
+| `paper-writing-zh` | [MIT](skills/paper-writing-zh/LICENSE) | Eason412 |
 
 The `course-report` emblem and official formatting materials are covered separately in [THIRD_PARTY_NOTICES.md](skills/course-report/THIRD_PARTY_NOTICES.md). Rights to those names, marks, and materials remain with their respective rightsholders.
