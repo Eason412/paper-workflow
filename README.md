@@ -26,7 +26,7 @@
 
 - **独立安装**：各 `skills/<name>` 目录均为独立安装单元，运行资源随目录保留。
 - **宿主**：Codex、Claude Code 等支持 `SKILL.md` 的 Agent 可使用这些规范；脚本执行、浏览器控制和读图能力由宿主提供。
-- **适用范围**：`paper-figure` 面向数据图，示意图、流程图和架构图不属于其范围；`paper-writing-zh` 面向中文学术论文、综述与学位论文正文，非论文中文写作归 `doc-workflow`。
+- **适用范围**：`paper-figure` 面向数据图，示意图、流程图和架构图不属于其范围；`paper-writing-zh` 面向中文学术论文、综述、学位论文与开题报告，非论文中文写作归 `doc-workflow`。
 
 ## 🛠️ 运行条件
 

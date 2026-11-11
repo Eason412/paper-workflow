@@ -26,7 +26,7 @@ Paper writing belongs in this repository; other writing and documentation Skills
 
 - **Standalone installation**: Each `skills/<name>` directory is a complete installation unit with its runtime resources.
 - **Hosts**: Codex, Claude Code, and other Agents supporting `SKILL.md` can use these specifications; the host provides script execution, browser control, and image inspection capabilities.
-- **Scope**: `paper-figure` targets data charts, and schematic, flow, and architecture diagrams are outside its scope; `paper-writing-zh` targets Chinese research papers, review papers, and theses, while non-paper Chinese writing belongs in `doc-workflow`.
+- **Scope**: `paper-figure` targets data charts, and schematic, flow, and architecture diagrams are outside its scope; `paper-writing-zh` targets Chinese research papers, review papers, theses, and thesis proposals, while non-paper Chinese writing belongs in `doc-workflow`.
 
 ## 🛠️ Runtime Requirements
 
