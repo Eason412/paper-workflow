@@ -14,7 +14,7 @@
 
 每个 Skill 保持完整安装单元，不依赖另一个 Skill 或总仓库根目录运行。入口为 `SKILL.md`，Codex 的显示信息放在 `agents/openai.yaml`。
 
-本机的 `~/.codex/skills/<name>`、`~/.claude/skills/<name>` 由 `scripts/link-skills.sh` 软链到本仓库 `skills/<name>`，在本机优化 Skill 即修改本仓库；验证通过后提交并推送。新增 Skill 后重跑该脚本。**论文写作归 paper-workflow，其他写作归 doc-workflow。**
+使用 Magpie 资源库的环境经 `~/.config/magpie/library/skills/<name>` 软链到本仓库 `skills/<name>` 并统一分发到各客户端（不再运行 `scripts/link-skills.sh`）；独立环境可用 `scripts/link-skills.sh` 软链到 `~/.codex/skills` 与 `~/.claude/skills`。软链下本地优化 Skill 即修改本仓库，验证通过后提交并推送。**论文写作归 paper-workflow，其他写作归 doc-workflow。**
 
 ## 修改与验证
 
