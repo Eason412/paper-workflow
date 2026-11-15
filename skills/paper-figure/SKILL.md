@@ -5,7 +5,7 @@ description: "科研数据作图：按论证目标选图，按目标期刊的成
 
 # 论文数据图
 
-只做数据图：折线、柱状、散点、箱线和小提琴、热力图、误差棒、分布、相关矩阵、多面板。由 agent 直接写 matplotlib 或 seaborn 代码，依赖用 `uv run --with matplotlib --with seaborn ...` 临时加入，不装进全局环境。
+只做数据图：折线、柱状、散点、箱线和小提琴、热力图、误差棒、分布、相关矩阵、多面板。由 agent 直接写 matplotlib 或 seaborn 代码，依赖先尝试 `uv run --offline --with matplotlib --with seaborn ...` 复用缓存（缺包再联网），不装进全局环境。
 
 ## 做法
 
@@ -39,7 +39,7 @@ plt.rcParams.update({
 ```
 
 - 只写 `"serif"` 再配 `font.serif` 列表不会逐字回退，中文仍会变方框。
-- 中文字体按本机实际有的选（字体名可从 `matplotlib.font_manager.fontManager.ttflist` 查）：macOS 有 Songti SC，Windows 常见 SimSun、SimHei，Linux 常见 Noto Serif CJK SC。投稿用的 PDF 优先选 TrueType 字体；PingFang 这类 OpenType (CFF) 字体嵌入后，`pdffonts` 会报字体类型不匹配。
+- macOS（如已安装常用中文字体）可直接使用 `Songti SC`、`Heiti SC` 或 `SimSun`、`SimHei`、`KaiTi`、`FangSong` 配 `Times New Roman`，无需每次先查清单；其他环境或缺字体时（Windows 常见 `SimSun`、`SimHei`，Linux 常见 `Noto Serif CJK SC`），可从 `matplotlib.font_manager.fontManager.ttflist` 查可用字体名。投稿用的 PDF 优先选 TrueType 字体；PingFang 这类 OpenType (CFF) 字体嵌入后，`pdffonts` 会报字体类型不匹配。
 - 导出后用 `pdffonts` 确认字体都已嵌入，且没有 Type 3。
 
 ## 参考文档
