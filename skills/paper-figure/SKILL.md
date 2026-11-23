@@ -33,7 +33,7 @@ matplotlib 默认字体没有中文，缺字时只发 warning、照样出图。�
 ```python
 plt.rcParams.update({
     "font.family": ["Times New Roman", "Songti SC"],
-    "axes.unicode_minus": False,  # 负号用 ASCII 字符，避免方框
+    "axes.unicode_minus": True,   # 真减号 U+2212；成图负号变方框时再改 False
     "pdf.fonttype": 42,           # 嵌入 TrueType，不用 Type 3
 })
 ```

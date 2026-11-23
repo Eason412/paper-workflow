@@ -286,12 +286,12 @@ sns.stripplot(data=df, x='group', y='value', color='black',
 
 **为什么会这样（根因）**：
 - matplotlib 默认字体（DejaVu Sans 等）**不含 CJK 字符表**——写中文必然方框。
-- 某些字体不含 Unicode 真减号 `U+2212`，`axes.unicode_minus=True`（默认）时负号就渲染成方框。
+- `font.family` 里的字体都不含 Unicode 真减号 `U+2212` 时，`axes.unicode_minus=True`（默认）会让负号渲染成方框。
 - 最坑的是：matplotlib 遇到缺字**只发一条 warning、照样把图画出来**，不报错——所以**画的时候不一定注意到，导出投稿才暴露**。
 
 **正确做法**：
 1. 把具体字体名按“西文在前、中文在后”写进 `font.family`（如 `["Times New Roman", "Songti SC"]`），matplotlib 会逐字回退。只写 `"serif"` 再配 `font.serif` 不会逐字回退。
-2. `axes.unicode_minus = False`，负号用 ASCII 字符。
+2. 字体含真减号时保持 `axes.unicode_minus = True`，负号用真减号；成图负号变方框时再设为 `False`，改用 ASCII 连字符。
 3. 导出后渲染成 PNG 看一眼，或留意运行日志里的 `Glyph ... missing` 警告。
 
 详细写法见 SKILL.md 的“中文字体”一节。
